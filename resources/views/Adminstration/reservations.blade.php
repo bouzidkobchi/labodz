@@ -48,7 +48,7 @@
 <div class="table-container container-fluid px-0 mb-4">
     <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
     @if($bookings->count() > 0)
-        <div class="table-info mx-3 mt-3">
+        <div class="table-info mx-0 mt-3 px-3">
             <p class="mb-0">عرض {{ $bookings->count() }} من أصل {{ $bookings->total() }} حجز</p>
         </div>
         
@@ -126,6 +126,20 @@
                             <a href="{{ route('admin.bookings.full-eligibility.form', $reservation->id) }}" class="btn btn-sm btn-outline-primary" title="فحص أهلية جميع التحاليل">
                                 <i class="fas fa-stethoscope"></i> فحص الأهلية
                             </a>
+                            
+                            @php
+                                $diagStatuses = $reservation->reservationAnalyses->pluck('status');
+                                $diagHasBlocked = $diagStatuses->contains('blocked');
+                                $diagHasWarning = $diagStatuses->contains('warning');
+                                $diagIsChecked = $diagStatuses->contains('ready') || $diagHasBlocked || $diagHasWarning;
+                            @endphp
+
+                            @if($diagIsChecked)
+                                <a href="{{ route('admin.bookings.eligibility.results', $reservation->id) }}" class="btn btn-sm btn-outline-primary" title="عرض تفاصيل التقييم والإجابات">
+                                    <i class="fas {{ $diagHasBlocked ? 'fa-times-circle' : ($diagHasWarning ? 'fa-exclamation-triangle' : 'fa-check-circle') }}"></i>
+                                    نتائج الأهلية
+                                </a>
+                            @endif
                         </div>
                     </td>
                 </tr>
@@ -287,6 +301,18 @@ document.addEventListener('DOMContentLoaded', function() {
     .status-pending_approval { background-color: #e9d8fd !important; color: #44337a !important; }
     .status-completed { background-color: #bee3f8 !important; color: #2c5282 !important; }
 
+    .eligibility-result-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
     .status-select {
         padding: 6px 12px;
         border: 1px solid #e2e8f0;
@@ -333,6 +359,8 @@ document.addEventListener('DOMContentLoaded', function() {
         border-right: 4px solid #3182ce;
         color: #2b6cb0;
         font-weight: 500;
+        min-width: 1240px;
+        display: block;
     }
 
     .toast-container .alert {

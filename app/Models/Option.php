@@ -9,5 +9,5 @@ class Option extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['question_id', 'text'];
+    protected $fillable = ['question_id', 'text', 'value'];
 }

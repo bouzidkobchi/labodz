@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\History;
+use App\Models\Option;
 use App\Models\Patient;
 use App\Models\PatientAnswer;
 use App\Models\Question;
@@ -115,14 +116,32 @@ class reservationsController extends Controller
         ]);
 
         try {
-            // Create patient record
-            $patient = Patient::create([
-                'name' => $reservationRequest->name,
-                'email' => $reservationRequest->email,
-                'phone' => $reservationRequest->phone,
-                'gender' => $reservationRequest->gender,
-                'birth_date' => $reservationRequest->birth_date,
-            ]);
+            // Find or Create patient record
+            $patient = null;
+            if ($reservationRequest->patient_id) {
+                $patient = Patient::find($reservationRequest->patient_id);
+            }
+
+            if (! $patient) {
+                $patient = Patient::where('phone', $reservationRequest->phone)->first();
+            }
+
+            if (! $patient) {
+                $patient = Patient::create([
+                    'name' => $reservationRequest->name,
+                    'email' => $reservationRequest->email,
+                    'phone' => $reservationRequest->phone,
+                    'gender' => $reservationRequest->gender,
+                    'birth_date' => $reservationRequest->birth_date,
+                ]);
+            } else {
+                // Update existing patient info if it was missing
+                $patient->update(array_filter([
+                    'email' => $patient->email ?: $reservationRequest->email,
+                    'gender' => $patient->gender ?: $reservationRequest->gender,
+                    'birth_date' => $patient->birth_date ?: $reservationRequest->birth_date,
+                ]));
+            }
 
             // Create ONE parent reservation
             $reservation = Reservation::create([
@@ -132,8 +151,18 @@ class reservationsController extends Controller
                 'status' => 'booked',
             ]);
 
+            // Determine which analyses to add (pivot vs single column)
+            $analyses = $reservationRequest->analyses;
+            if ($analyses->isEmpty() && $reservationRequest->analyse_id) {
+                $analyses = collect([$reservationRequest->analyse]);
+            }
+
             // Create linked reservation analyses
-            foreach ($reservationRequest->analyses as $analyse) {
+            foreach ($analyses as $analyse) {
+                if (! $analyse) {
+                    continue;
+                }
+
                 $resAnalysis = ReservationAnalysis::create([
                     'reservation_id' => $reservation->id,
                     'analysis_id' => $analyse->id,
@@ -287,46 +316,83 @@ class reservationsController extends Controller
      */
     public function submitFullEligibilityCheck(Request $request, AnalysisEligibilityService $eligibilityService, $id)
     {
-        $reservation = Reservation::with('reservationAnalyses')->findOrFail($id);
+        $reservation = Reservation::with('reservationAnalyses.analyse')->findOrFail($id);
 
         $request->validate([
             'answers' => 'required|array',
-            'answers.*' => 'exists:options,id',
         ]);
 
         // 1. Save answers for the patient
-        foreach ($request->answers as $questionId => $optionId) {
-            PatientAnswer::updateOrCreate(
-                [
+        foreach ($request->answers as $questionId => $optionData) {
+            $optionIds = is_array($optionData) ? $optionData : [$optionData];
+
+            // Remove old answers for this question to support multi-select sync
+            PatientAnswer::where('patient_id', $reservation->patient_id)
+                ->where('question_id', $questionId)
+                ->delete();
+
+            foreach ($optionIds as $optionId) {
+                if (! $optionId) {
+                    continue;
+                }
+
+                PatientAnswer::create([
                     'patient_id' => $reservation->patient_id,
                     'question_id' => $questionId,
-                ],
-                [
                     'option_id' => $optionId,
-                ]
-            );
+                ]);
+            }
+
+            // Auto-set sub-questions if parent is 'NO' (e.g., Medication -> Diabetes Medication)
+            $optionId = is_array($optionData) ? ($optionData[0] ?? null) : $optionData;
+            if ($optionId) {
+                $option = Option::find($optionId);
+                if ($option && $option->value === 'NO') {
+                    $subQs = Question::where('parent_question_id', $questionId)->get();
+                    foreach ($subQs as $subQ) {
+                        $noOption = Option::where('question_id', $subQ->id)->where('value', 'NO')->first();
+                        if ($noOption) {
+                            PatientAnswer::updateOrCreate(
+                                ['patient_id' => $reservation->patient_id, 'question_id' => $subQ->id],
+                                ['option_id' => $noOption->id]
+                            );
+                        }
+                    }
+                }
+            }
         }
 
         // 2. Run eligibility check for each analysis in the reservation
         $statusMap = [
-            'block' => 'blocked',
-            'warning' => 'warning',
-            'approval' => 'pending_approval',
-            'eligible' => 'ready',
+            'block' => 'INVALID',
+            'warning' => 'VALID_WITH_NOTE',
+            'eligible' => 'READY',
+        ];
+
+        $viewStatusMap = [
+            'INVALID' => 'blocked',
+            'VALID_WITH_NOTE' => 'warning',
+            'READY' => 'ready',
         ];
 
         $results = [];
         foreach ($reservation->reservationAnalyses as $resAnalysis) {
             $checkResult = $eligibilityService->checkEligibility($reservation->patient_id, $resAnalysis->analysis_id);
-            $newStatus = $statusMap[$checkResult['status']] ?? 'ready';
-            $resAnalysis->update(['status' => $newStatus]);
-            
+
+            $jsonStatus = $statusMap[$checkResult['status']] ?? 'READY';
+            $viewStatus = $viewStatusMap[$jsonStatus];
+
+            // Update database status
+            $resAnalysis->update(['status' => $viewStatus]);
+
             $results[] = [
                 'analysis_id' => $resAnalysis->id,
                 'name' => $resAnalysis->analyse->name,
-                'status' => $newStatus,
-                'reason' => $checkResult['reason'] ?? null,
-                'action' => $checkResult['status']
+                'status' => $viewStatus, // for frontend UI
+                'fasting_valid' => ($jsonStatus !== 'INVALID'),
+                'eligibility_status' => $jsonStatus, // for user requested JSON
+                'notes' => $checkResult['notes'] ?? [],
+                'action' => $checkResult['status'],
             ];
         }
 
@@ -334,7 +400,7 @@ class reservationsController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'تم تحديث حالة أهلية جميع التحاليل بنجاح.',
-                'results' => $results
+                'results' => $results,
             ]);
         }
 
@@ -359,10 +425,42 @@ class reservationsController extends Controller
             return response()->json([
                 'success' => true,
                 'status' => $resAnalysis->status,
-                'message' => 'تم تحديث حالة التحليل بنجاح.'
+                'message' => 'تم تحديث حالة التحليل بنجاح.',
             ]);
         }
 
         return back()->with('success', 'تم تحديث حالة التحليل بنجاح.');
+    }
+
+    /**
+     * Show detailed eligibility results for a reservation.
+     */
+    public function showEligibilityResults(AnalysisEligibilityService $eligibilityService, $id)
+    {
+        $reservation = Reservation::with(['patient', 'reservationAnalyses.analyse'])->findOrFail($id);
+
+        $results = [];
+        foreach ($reservation->reservationAnalyses as $resAnalysis) {
+            $checkResult = $eligibilityService->checkEligibility($reservation->patient_id, $resAnalysis->analysis_id);
+            $results[] = [
+                'name' => $resAnalysis->analyse->name,
+                'status' => $checkResult['status'],
+                'notes' => $checkResult['notes'] ?? []
+            ];
+        }
+
+        // Get all questions relevant to this reservation's analyses
+        $analyseIds = $reservation->reservationAnalyses->pluck('analysis_id');
+        
+        // Get patient answers related to these analyses
+        $patientAnswers = PatientAnswer::with(['question', 'option'])
+            ->where('patient_id', $reservation->patient_id)
+            ->whereHas('question', function($query) use ($analyseIds) {
+                $query->whereIn('analyse_id', $analyseIds);
+            })
+            ->get()
+            ->groupBy('question_id');
+
+        return view('Adminstration.eligibility-results', compact('reservation', 'results', 'patientAnswers'));
     }
 }

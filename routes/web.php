@@ -58,6 +58,7 @@ Route::middleware('auth:administrator')->group(function () {
         // Unified Reservation Eligibility Check
         Route::get('/{id}/full-eligibility', [reservationsController::class, 'showFullEligibilityCheck'])->name('admin.bookings.full-eligibility.form');
         Route::post('/{id}/full-eligibility', [reservationsController::class, 'submitFullEligibilityCheck'])->name('admin.bookings.full-eligibility.submit');
+        Route::get('/{id}/eligibility-results', [reservationsController::class, 'showEligibilityResults'])->name('admin.bookings.eligibility.results');
 
         // Individual Analysis Status Update
         Route::put('/analysis/{id}/status', [reservationsController::class, 'updateAnalysisStatus'])->name('admin.bookings.analysis.status.update');

@@ -17,6 +17,12 @@ class Question extends Model
     protected $fillable = [
         'question',
         'analyse_id',
+        'type',
+        'parent_question_id',
+        'show_when_option_id',
+        'is_multiple',
+        'gender_condition',
+        'order',
     ];
 
     /**
@@ -32,6 +38,21 @@ class Question extends Model
      */
     public function options()
     {
-        return $this->hasMany(Option::class);
+        return $this->hasMany(Option::class)->orderBy('id');
+    }
+
+    public function parentQuestion()
+    {
+        return $this->belongsTo(Question::class, 'parent_question_id');
+    }
+
+    public function subQuestions()
+    {
+        return $this->hasMany(Question::class, 'parent_question_id')->orderBy('order');
+    }
+
+    public function showWhenOption()
+    {
+        return $this->belongsTo(Option::class, 'show_when_option_id');
     }
 }

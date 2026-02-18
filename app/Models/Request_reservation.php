@@ -13,6 +13,7 @@ class Request_reservation extends Model
         'name',
         'email',
         'phone',
+        'analyse_id',
         'gender',
         'birth_date',
         'preferred_date',

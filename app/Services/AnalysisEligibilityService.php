@@ -16,27 +16,46 @@ class AnalysisEligibilityService
      */
     public function checkEligibility($patient_id, $analysis_id)
     {
-        // 1) Get rules: AnalysisRule::where('analysis_id', $analysisId)->get()
-        $rules = AnalysisRule::where('analysis_id', $analysis_id)->get();
+        $rules = AnalysisRule::with(['question', 'option'])
+            ->where('analysis_id', $analysis_id)
+            ->get();
 
-        // 2) Get patient answers: PatientAnswer::where('patient_id', $patientId)->pluck('option_id', 'question_id')
         $patientAnswers = PatientAnswer::where('patient_id', $patient_id)
-            ->pluck('option_id', 'question_id');
+            ->get()
+            ->groupBy('question_id');
 
-        // 3) Loop through rules:
+        $status = 'eligible';
+        $notes = [];
+
         foreach ($rules as $rule) {
-            // If patient answer for rule.question_id equals rule.disallowed_option_id:
-            if (isset($patientAnswers[$rule->question_id]) && $patientAnswers[$rule->question_id] == $rule->disallowed_option_id) {
-                return [
-                    'status' => $rule->action,
-                    'reason' => "Rule violated"
-                ];
+            $answers = $patientAnswers->get($rule->question_id);
+            
+            if ($answers) {
+                $hasViolated = false;
+                foreach ($answers as $answer) {
+                    if ($answer->option_id == $rule->disallowed_option_id) {
+                        $hasViolated = true;
+                        break;
+                    }
+                }
+
+                if ($hasViolated) {
+                    // Update main status (block overrides warning)
+                    if ($rule->action === 'block') {
+                        $status = 'block';
+                    } elseif ($status !== 'block' && $rule->action === 'warning') {
+                        $status = 'warning';
+                    }
+
+                    // Add note if provided in rule or generate from question
+                    $notes[] = $rule->question->question . ': ' . $rule->option->text;
+                }
             }
         }
 
-        // 4) If no violations: return status = eligible
         return [
-            'status' => 'eligible'
+            'status' => $status,
+            'notes' => $notes
         ];
     }
 }

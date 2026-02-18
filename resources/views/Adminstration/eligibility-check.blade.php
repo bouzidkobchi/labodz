@@ -33,23 +33,66 @@
                                     {{ $resAnalysis->analyse->name }}
                                 </h4>
                                 
-                                @foreach($resAnalysis->analyse->questions as $question)
-                                    <div class="question-item mb-4 pb-3 border-bottom">
-                                        <h5 class="mb-3 text-primary">{{ $question->question }}</h5>
-                                        <div class="options-container d-flex flex-wrap gap-4">
-                                            @foreach($question->options as $option)
-                                                <div class="form-check custom-radio">
-                                                    <input class="form-check-input" type="radio" 
-                                                           name="answers[{{ $question->id }}]" 
-                                                           id="option_{{ $option->id }}" 
-                                                           value="{{ $option->id }}" 
-                                                           required>
-                                                    <label class="form-check-label px-2" for="option_{{ $option->id }}">
-                                                        {{ $option->text }}
-                                                    </label>
-                                                </div>
-                                            @endforeach
+                                @foreach($resAnalysis->analyse->questions->where('parent_question_id', null) as $question)
+                                    @php
+                                        $shouldShow = true;
+                                        if ($question->gender_condition && strtolower($patient->gender) !== strtolower($question->gender_condition)) {
+                                            $shouldShow = false;
+                                        }
+                                    @endphp
+                                    
+                                    <div class="question-wrapper {{ !$shouldShow ? 'd-none' : '' }}" 
+                                         data-question-id="{{ $question->id }}"
+                                         data-gender-condition="{{ $question->gender_condition }}">
+                                        
+                                        <div class="question-item mb-4 pb-3 border-bottom">
+                                            <h5 class="mb-3 text-primary">{{ $question->question }}</h5>
+                                            <div class="options-container d-flex flex-wrap gap-4">
+                                                @foreach($question->options as $option)
+                                                    <div class="form-check custom-input">
+                                                        @if($question->is_multiple)
+                                                            <input class="form-check-input eligibility-option" type="checkbox" 
+                                                                   name="answers[{{ $question->id }}][]" 
+                                                                   id="option_{{ $option->id }}" 
+                                                                   value="{{ $option->id }}"
+                                                                   data-option-value="{{ $option->value }}">
+                                                        @else
+                                                            <input class="form-check-input eligibility-option" type="radio" 
+                                                                   name="answers[{{ $question->id }}]" 
+                                                                   id="option_{{ $option->id }}" 
+                                                                   value="{{ $option->id }}" 
+                                                                   data-option-value="{{ $option->value }}"
+                                                                   required>
+                                                        @endif
+                                                        <label class="form-check-label px-2" for="option_{{ $option->id }}">
+                                                            {{ $option->text }}
+                                                        </label>
+                                                    </div>
+                                                @endforeach
+                                            </div>
                                         </div>
+
+                                        {{-- Sub-questions --}}
+                                        @foreach($question->subQuestions as $subQuestion)
+                                            <div class="sub-question-wrapper d-none mb-4 ms-4 p-3 border-start border-info bg-white rounded shadow-sm"
+                                                 data-parent-option-id="{{ $subQuestion->show_when_option_id }}">
+                                                <h6 class="mb-3 text-info"><i class="fas fa-level-down-alt me-2 fa-rotate-180"></i>{{ $subQuestion->question }}</h6>
+                                                <div class="options-container d-flex flex-wrap gap-4">
+                                                    @foreach($subQuestion->options as $option)
+                                                        <div class="form-check custom-input">
+                                                            <input class="form-check-input eligibility-option" type="radio" 
+                                                                   name="answers[{{ $subQuestion->id }}]" 
+                                                                   id="option_{{ $option->id }}" 
+                                                                   value="{{ $option->id }}"
+                                                                   data-option-value="{{ $option->value }}">
+                                                            <label class="form-check-label px-2" for="option_{{ $option->id }}">
+                                                                {{ $option->text }}
+                                                            </label>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endforeach
                                     </div>
                                 @endforeach
                             </div>
@@ -103,6 +146,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('eligibility-form');
     if (!form) return;
 
+    // Handle conditional sub-questions
+    const handleSubQuestions = (radio) => {
+        const questionWrapper = radio.closest('.question-wrapper');
+        if (!questionWrapper) return;
+
+        const subQuestions = questionWrapper.querySelectorAll('.sub-question-wrapper');
+        subQuestions.forEach(sub => {
+            if (radio.checked && sub.dataset.parentOptionId == radio.value) {
+                sub.classList.remove('d-none');
+                sub.querySelectorAll('input').forEach(input => input.required = true);
+            } else if (radio.type === 'radio' && radio.name === `answers[${questionWrapper.dataset.questionId}]`) {
+                // Only hide if the changed radio is on the same parent and it's NOT the triggering one
+                sub.classList.add('d-none');
+                sub.querySelectorAll('input').forEach(input => {
+                    input.required = false;
+                    input.checked = false;
+                });
+            }
+        });
+    };
+
+    form.querySelectorAll('.eligibility-option').forEach(input => {
+        if (input.type === 'radio' && input.checked) handleSubQuestions(input);
+        
+        input.addEventListener('change', function() {
+            if (this.type === 'radio') {
+                handleSubQuestions(this);
+            }
+        });
+    });
+
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -120,62 +194,83 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: formData,
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
             }
         })
-        .then(response => response.json())
+        .then(async response => {
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Server error: ' + response.status);
+            }
+            return response.json();
+        })
         .then(data => {
             spinner.classList.add('d-none');
+            submitBtn.disabled = false;
             resultsContainer.classList.remove('d-none');
             resultsList.innerHTML = '';
             
-            data.results.forEach(result => {
-                const col = document.createElement('div');
-                col.className = 'col-md-6';
-                
-                let cardClass = 'bg-light';
-                let iconClass = 'fa-check-circle text-success';
-                let statusText = 'جاهز للتنفيذ';
-                
-                if (result.status === 'blocked') {
-                    cardClass = 'border-danger bg-danger-subtle';
-                    iconClass = 'fa-times-circle text-danger';
-                    statusText = 'محظور';
-                } else if (result.status === 'warning') {
-                    cardClass = 'border-warning bg-warning-subtle';
-                    iconClass = 'fa-exclamation-triangle text-warning';
-                    statusText = 'تنبيه / مراجعة';
-                } else if (result.status === 'pending_approval') {
-                    cardClass = 'border-info bg-info-subtle';
-                    iconClass = 'fa-clock text-info';
-                    statusText = 'بانتظار الموافقة';
-                }
-                
-                col.innerHTML = `
-                    <div class="card h-100 border-2 shadow-sm ${cardClass}">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5 class="card-title mb-0">${result.name}</h5>
-                                <i class="fas ${iconClass} fa-2x"></i>
+            if (data.results && data.results.length > 0) {
+                data.results.forEach(result => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6';
+                    
+                    let cardClass = 'bg-light';
+                    let iconClass = 'fa-check-circle text-success';
+                    let statusText = 'جاهز للتنفيذ';
+                    
+                    if (result.status === 'blocked') {
+                        cardClass = 'border-danger bg-danger-subtle';
+                        iconClass = 'fa-times-circle text-danger';
+                        statusText = 'محظور / إعادة جدولة';
+                    } else if (result.status === 'warning') {
+                        cardClass = 'border-warning bg-warning-subtle';
+                        iconClass = 'fa-exclamation-triangle text-warning';
+                        statusText = 'تنبيه / مراجعة';
+                    } else if (result.status === 'pending_approval') {
+                        cardClass = 'border-info bg-info-subtle';
+                        iconClass = 'fa-clock text-info';
+                        statusText = 'بانتظار الموافقة';
+                    }
+                    
+                    let notesHtml = '';
+                    if (result.notes && result.notes.length > 0) {
+                        notesHtml = '<ul class="mt-2 mb-0 small text-muted">';
+                        result.notes.forEach(note => {
+                            notesHtml += `<li><i class="fas fa-caret-left me-1"></i> ${note}</li>`;
+                        });
+                        notesHtml += '</ul>';
+                    }
+
+                    col.innerHTML = `
+                        <div class="card h-100 border-2 shadow-sm ${cardClass}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="card-title mb-0">${result.name}</h5>
+                                    <i class="fas ${iconClass} fa-2x"></i>
+                                </div>
+                                <p class="card-text mb-1">
+                                    <strong>الحالة:</strong> ${statusText}
+                                </p>
+                                ${notesHtml}
                             </div>
-                            <p class="card-text">
-                                <strong>الحالة الدراسية:</strong> ${statusText}
-                            </p>
-                            ${result.reason ? `<p class="card-text text-muted small"><i class="fas fa-info-circle me-1"></i> ${result.reason}</p>` : ''}
                         </div>
-                    </div>
-                `;
-                resultsList.appendChild(col);
-            });
-            
-            // Scroll to results
-            resultsContainer.scrollIntoView({ behavior: 'smooth' });
+                    `;
+                    resultsList.appendChild(col);
+                });
+                
+                // Scroll to results
+                resultsContainer.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                resultsList.innerHTML = '<div class="col-12 text-center text-muted">لا توجد نتائج تقييم.</div>';
+            }
         })
         .catch(error => {
             console.error('Error:', error);
             spinner.classList.add('d-none');
             submitBtn.disabled = false;
-            alert('حدث خطأ أثناء معالجة الطلب. يرجى المحاولة مرة أخرى.');
+            alert('حدث خطأ أثناء معالجة الطلب: ' + error.message);
         });
     });
 });

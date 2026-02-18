@@ -2,15 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Patient;
-use App\Models\History;
 use App\Models\Analyse;
 use App\Models\Message;
+use App\Models\Patient;
 use App\Models\Request_reservation;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Support\Facades\Validator;
 
 class Labo_dzController extends Controller
 {
@@ -29,7 +27,6 @@ class Labo_dzController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
     public function booking(Request $request)
@@ -44,12 +41,11 @@ class Labo_dzController extends Controller
             'analysisTypes' => 'required|array|min:1',
             'analysisTypes.*' => 'exists:analyses,id',
             'date' => 'nullable|date',
-            'time' => 'nullable'
+            'time' => 'nullable',
         ]);
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
         }
-
 
         try {
             // Create reservation request with patient info
@@ -57,11 +53,12 @@ class Labo_dzController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
+                'analyse_id' => $request->analysisTypes[0] ?? null,
                 'gender' => $request->gender,
                 'birth_date' => $request->birth_date,
                 'preferred_date' => $request->date,
                 'preferred_time' => $request->time,
-                'status' => 'pending'
+                'status' => 'pending',
             ]);
 
             // Attach multiple analyses
@@ -77,6 +74,7 @@ class Labo_dzController extends Controller
                 ->with('download_pdf', $requestReservation->id);
         } catch (\Exception $e) {
             Log::error('Booking error:', ['error' => $e->getMessage()]);
+
             return redirect()->back()->with('error', 'حدث خطأ أثناء إرسال طلب الحجز، يرجى المحاولة مرة أخرى');
         }
     }
@@ -87,16 +85,14 @@ class Labo_dzController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email',
-            'message' => 'required|string'
+            'message' => 'required|string',
         ]);
-
 
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
         try {
-
             Message::create([
                 'name' => $request->name,
                 'email' => $request->email,
@@ -106,6 +102,7 @@ class Labo_dzController extends Controller
             return redirect()->back()->with('success', 'تم إرسال رسالتك بنجاح وسنرد عليك في أقرب وقت');
         } catch (\Exception $e) {
             Log::error('Message sending error:', ['error' => $e->getMessage()]);
+
             return redirect()->back()->with('error', 'حدث خطأ أثناء إرسال الرسالة، يرجى المحاولة مرة أخرى');
         }
     }
@@ -113,6 +110,7 @@ class Labo_dzController extends Controller
     public function analysisInfo()
     {
         $analyses = Analyse::all();
+
         return view('analysis-info', compact('analyses'));
     }
 }
