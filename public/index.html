@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Labo_dz</title>
+</head>
+<body>
+  <div id="app"></div>
+  <noscript>Please enable JavaScript to view this site.</noscript>
+  <script>
+    (async function() {
+      try {
+        const resp = await fetch('/build/manifest.json');
+        const manifest = await resp.json();
+        // load CSS first
+        Object.values(manifest).forEach(entry => {
+          const file = entry.file || entry;
+          if (!file) return;
+          if (file.endsWith('.css')) {
+            const l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = '/build/' + file;
+            document.head.appendChild(l);
+          }
+        });
+        // then load JS entries
+        // prefer resources/js/app.js if present, otherwise load all .js entries
+        const jsEntry = manifest['resources/js/app.js'] ? manifest['resources/js/app.js'].file : null;
+        if (jsEntry) {
+          const s = document.createElement('script');
+          s.type = 'module';
+          s.src = '/build/' + jsEntry;
+          document.body.appendChild(s);
+        } else {
+          Object.values(manifest).forEach(entry => {
+            const file = entry.file || entry;
+            if (file && file.endsWith('.js')) {
+              const s = document.createElement('script');
+              s.type = 'module';
+              s.src = '/build/' + file;
+              document.body.appendChild(s);
+            }
+          });
+        }
+      } catch (e) {
+        console.error('Failed to load manifest or assets', e);
+      }
+    })();
+  </script>
+</body>
+</html>
