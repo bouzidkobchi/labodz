@@ -1,0 +1,14 @@
+/app
+/bootstrap
+/config
+/database
+/resources/views
+/routes
+/vendor
+/storage
+.env
+*.sql
+/docker-compose.yml
+/Dockerfile
+composer.lock
+composer.phar
