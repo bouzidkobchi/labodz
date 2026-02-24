@@ -44,24 +44,55 @@
     </form>
 </div>
 
+<!-- Letter Filter -->
+<div class="letter-filter mb-4">
+    <div class="d-flex flex-wrap gap-1 justify-content-center">
+        <a href="{{ request()->fullUrlWithQuery(['letter' => null]) }}" class="btn btn-sm {{ !request('letter') ? 'btn-primary' : 'btn-outline-secondary' }}">ALL</a>
+        @foreach(range('A', 'Z') as $char)
+            <a href="{{ request()->fullUrlWithQuery(['letter' => $char]) }}" 
+               class="btn btn-sm {{ request('letter') == $char ? 'btn-primary' : 'btn-outline-secondary' }}"
+               style="width: 35px;">{{ $char }}</a>
+        @endforeach
+        <a href="{{ request()->fullUrlWithQuery(['letter' => '#']) }}" class="btn btn-sm {{ request('letter') == '#' ? 'btn-primary' : 'btn-outline-secondary' }}">#</a>
+    </div>
+</div>
+
 <!-- Results Table -->
 <div class="table-container container-fluid px-0 mb-4">
     <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
     @if($bookings->count() > 0)
-        <div class="table-info mx-0 mt-3 px-3">
+        <div class="table-info mx-0 mt-3 px-3 d-flex justify-content-between align-items-center">
             <p class="mb-0">{{ __('messages.showing_results', ['count' => $bookings->count(), 'total' => $bookings->total()]) }}</p>
+            @if(request('letter'))
+                <span class="badge bg-primary px-3 py-2">{{ __('messages.filters') }}: "{{ request('letter') }}"</span>
+            @endif
         </div>
         
         <table class="data-table mb-0">
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>{{ __('messages.customer') }}</th>
+                    <th>
+                        <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'name', 'sort_order' => request('sort_by') == 'name' && request('sort_order', 'asc') == 'asc' ? 'desc' : 'asc']) }}" class="text-decoration-none text-dark d-flex align-items-center">
+                            {{ __('messages.customer') }}
+                            <i class="fas fa-sort{{ request('sort_by') == 'name' ? (request('sort_order') == 'asc' ? '-up' : '-down') : '' }} ms-1 opacity-50"></i>
+                        </a>
+                    </th>
                     <th>{{ __('messages.barcode') ?? 'Barcode' }}</th>
                     <th>{{ __('messages.phone') }}</th>
                     <th>{{ __('messages.analyses') }}</th>
-                    <th>{{ __('messages.date') }}</th>
-                    <th>{{ __('messages.time') }}</th>
+                    <th>
+                        <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'analysis_date', 'sort_order' => request('sort_by') == 'analysis_date' && request('sort_order', 'desc') == 'asc' ? 'desc' : 'asc']) }}" class="text-decoration-none text-dark d-flex align-items-center">
+                            {{ __('messages.date') }}
+                            <i class="fas fa-sort{{ request('sort_by') == 'analysis_date' ? (request('sort_order') == 'asc' ? '-up' : '-down') : '' }} ms-1 opacity-50"></i>
+                        </a>
+                    </th>
+                    <th>
+                        <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'time', 'sort_order' => request('sort_by') == 'time' && request('sort_order', 'asc') == 'asc' ? 'desc' : 'asc']) }}" class="text-decoration-none text-dark d-flex align-items-center">
+                            {{ __('messages.time') }}
+                            <i class="fas fa-sort{{ request('sort_by') == 'time' ? (request('sort_order') == 'asc' ? '-up' : '-down') : '' }} ms-1 opacity-50"></i>
+                        </a>
+                    </th>
                     <th>{{ __('messages.status') }}</th>
                     <th>{{ __('messages.actions') }}</th>
                 </tr>

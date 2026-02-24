@@ -12,7 +12,10 @@ use App\Models\Request_reservation;
 use App\Models\Reservation;
 use App\Models\ReservationAnalysis;
 use App\Services\AnalysisEligibilityService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class reservationsController extends Controller
 {
@@ -35,6 +38,19 @@ class reservationsController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Filter by first letter of patient name
+        if ($request->filled('letter')) {
+            $letter = $request->letter;
+            $query->whereHas('patient', function ($q) use ($letter) {
+                if ($letter === '#') {
+                    // Filter for names starting with non-alphabetical characters
+                    $q->where('name', 'regexp', '^[^a-zA-Z]');
+                } else {
+                    $q->where('name', 'like', "$letter%");
+                }
+            });
+        }
+
         // Search for patient by name or phone
         if ($request->filled('search')) {
             $search = $request->search;
@@ -44,10 +60,34 @@ class reservationsController extends Controller
             });
         }
 
-        // Fetch booked reservations, newest first
-        $bookings = $query->orderByDesc('analysis_date')
-            ->orderByDesc('time')
-            ->paginate(10);
+        // Apply dynamic sorting
+        $sortBy = $request->get('sort_by', 'analysis_date');
+        $sortOrder = $request->get('sort_order', 'desc');
+        
+        // Define allowable sort fields
+        $allowedSorts = [
+            'name' => 'patient.name', // Will be handled differently for joins
+            'analysis_date' => 'analysis_date',
+            'time' => 'time',
+            'status' => 'status'
+        ];
+
+        if ($sortBy === 'name') {
+            // Join patient table for sorting by name
+            $query->join('patients', 'reservations.patient_id', '=', 'patients.id')
+                  ->select('reservations.*')
+                  ->orderBy('patients.name', $sortOrder);
+        } else {
+            $query->orderBy($sortBy, $sortOrder);
+            
+            // Secondary sort for consistency if sorting by date
+            if ($sortBy === 'analysis_date') {
+                $query->orderBy('time', $sortOrder);
+            }
+        }
+
+        // Fetch booked reservations, paginated
+        $bookings = $query->paginate(15);
 
         // Add Professional QR Codes to the collection (Null-safe)
         foreach ($bookings as $booking) {
@@ -199,7 +239,7 @@ class reservationsController extends Controller
                 ]);
             }
 
-            // Update reservation request
+            // Base update for reservation request (will be overridden if < 8h + fasting)
             $reservationRequest->update([
                 'status' => 'confirmed',
                 'patient_id' => $patient->id,
@@ -207,9 +247,165 @@ class reservationsController extends Controller
                 'admin_notes' => $request->admin_notes,
             ]);
 
-            return redirect()->route('reservation.requests')->with('success', 'تم تأكيد الطلب وإنشاء الحجز بنجاح');
+            // Integrated Smart Reminder Logic (Algeria Timezone: Africa/Algiers)
+            $patientEmail = $patient->email ?: $reservationRequest->email;
+            if ($patientEmail) {
+                try {
+                    $now = \Carbon\Carbon::now('Africa/Algiers');
+                    $appointmentDateTime = \Carbon\Carbon::parse(
+                        $request->analysis_date . ' ' . ($request->time ?? '09:00'),
+                        'Africa/Algiers'
+                    );
+                    
+                    // High-Precision: Calculate float hours remaining (accounts for multiple days and exact time)
+                    $hoursRemaining = $now->floatDiffInHours($appointmentDateTime, false);
+                    
+                    $requiresFasting = $analyses->contains(function($a) {
+                        return $a && str_contains($a->preparation_instructions, 'صيام');
+                    });
+
+                    $smartMessage = null;
+
+                    // 1. If < 8h AND requires fasting -> Reschedule Warning
+                    if ($hoursRemaining < 8 && $requiresFasting) {
+                        // Mark as rejected since there isn't enough time to fast
+                        $reservationRequest->update(['status' => 'rejected']);
+                        
+                        $fastingAnalyses = $analyses->filter(fn($a) => $a && str_contains($a->preparation_instructions, 'صيام'));
+                        Mail::send('emails.booking-too-close', [
+                            'patientName' => $reservationRequest->name,
+                            'fastingAnalyses' => $fastingAnalyses,
+                            'analysisDate' => \Carbon\Carbon::parse($request->analysis_date)->format('d/m/Y'),
+                            'analysisTime' => $request->time,
+                        ], function ($message) use ($patientEmail) {
+                            $message->to($patientEmail)
+                                    ->subject('تنبيه: يجب إعادة جدولة موعد تحاليلكم - labo.dz');
+                        });
+                        
+                        Log::info('Appointment too close for fasting (' . round($hoursRemaining, 2) . 'h). Marked as rejected for: ' . $patientEmail);
+                        return redirect()->route('reservation.requests')->with('error', 'تم رفض الطلب تلقائياً لعدم كفاية الوقت للصيام (أقل من 8 ساعات)');
+                    } 
+                    
+                    // 2. If between 8h and 14h AND requires fasting -> Send immediate Reminder
+                    elseif ($hoursRemaining >= 8 && $hoursRemaining < 14 && $requiresFasting) {
+                        $fullHours = floor($hoursRemaining);
+                        $remainingMins = round(($hoursRemaining - $fullHours) * 60);
+                        $smartMessage = "تذكير: موعد التحليل يقترب! متبقي " . $fullHours . " ساعة و " . $remainingMins . " دقيقة. يرجى البدء في الصيام الآن لضمان دقة النتائج.";
+                        $this->sendImmediateReminder($patient, $analyses, $request, $reservationRequest, $smartMessage);
+                    }
+                    
+                    // 3. If more than 14h AND requires fasting -> Preparation instruction
+                    elseif ($hoursRemaining >= 14 && $requiresFasting) {
+                        $smartMessage = "ملاحظة: هذا التحليل يتطلب الصيام لمدة 14 ساعة قبل الموعد. يرجى البدء في الصيام عند اقتراب الموعد بـ 14 ساعة لضمان النتائج.";
+                        $this->sendImmediateReminder($patient, $analyses, $request, $reservationRequest, $smartMessage);
+                    }
+                    
+                    // 4. All other cases (Non-fasting) -> Standard Confirmation
+                    else {
+                        $this->sendImmediateReminder($patient, $analyses, $request, $reservationRequest);
+                    }
+
+                } catch (\Exception $remException) {
+                    Log::error('Smart Reminder Logic Error: ' . $remException->getMessage());
+                }
+            }
+
+            return redirect()->route('reservation.requests')->with('success', 'تم تأكيد الطلب وإرسال الإشعارات بنجاح');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'حدث خطأ أثناء تأكيد الطلب: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Helper to send the standard confirmation email with PDF attachment
+     */
+    private function sendImmediateReminder($patient, $analyses, $request, $reservationRequest, $smartMessage = null)
+    {
+        $patientEmail = $patient->email ?: $reservationRequest->email;
+        if (!$patientEmail) return;
+
+        try {
+            // Reload reservation request with analyses for PDF generation
+            $reservationRequest->load('analyses');
+
+            // Build translation maps
+            $analysisTranslations = [
+                'تحليل الدم الشامل' => 'Numération Formule Sanguine (NFS)',
+                'تحليل السكر في الدم' => 'Glycémie à jeun',
+                'تحليل الكوليسترول والدهون' => 'Bilan Lipidique',
+                'تحليل وظائف الكبد' => 'Bilan Hépatique',
+                'تحليل وظائف الكلى' => 'Bilan Rénal',
+                'تحليل البول الكامل' => 'Examen des Urines (ECBU)',
+                'فصيلة الدم' => 'Groupage Sanguin',
+                'سرعة الترسيب' => 'Vitesse de Sédimentation (VS)',
+                'تحليل وظائف الغدة الدرقية' => 'Bilan Thyroïdien',
+                'تحليل فيتامين د' => 'Vitamine D',
+            ];
+
+            $instructionTranslations = [
+                'لا يتطلب صيام. يمكن إجراء التحليل في أي وقت.' => 'À jeun non requis. Peut être effectué à tout moment.',
+                'يتطلب الصيام لمدة 8-12 ساعة قبل التحليل. يُسمح بشرب الماء فقط.' => 'Jeûne de 8 à 12 heures requis. Seule l\'eau est autorisée.',
+                'يتطلب الصيام لمدة 12 ساعة قبل التحليل. تجنب الأطعمة الدسمة في اليوم السابق.' => 'Jeûne de 12 heures requis. Éviter les aliments gras la veille.',
+                'يفضل الصيام لمدة 8 ساعات. تجنب الأدوية التي قد تؤثر على الكبد قبل الفحص بعد استشارة الطبيب.' => 'Jeûne de 8 heures préférable. Éviter les médicaments affectant le foie sans avis médical.',
+                'يفضل الصيام لمدة 8 ساعات. شرب كمية كافية من الماء في اليوم السابق.' => 'Jeûne de 8 heures préférable. Bien s\'hydrater la veille.',
+                'جمع عينة البول الصباحي الأول. غسل المنطقة التناسلية قبل جمع العينة.' => 'Recueillir les premières urines du matin après toilette intime.',
+                'لا يتطلب أي تحضيرات خاصة. يمكن إجراء التحليل في أي وقت.' => 'Aucune preparation spéciale. Peut être effectué à tout moment.',
+                'لا يتطلب صيام. تجنب أدوية الغدة الدرقية قبل 4 ساعات من التحليل بعد استشارة الطبيب.' => 'À jeun non requis. Éviter les médicaments thyroïdiens 4h avant sans avis médical.',
+                'لا يتطلب صيام. يمكن إجراء التحليل في أي وقت من اليوم.' => 'À jeun non requis. Peut être effectué à tout moment.',
+            ];
+
+            // Apply translations to analyses
+            foreach ($reservationRequest->analyses as $analysis) {
+                $analysis->name_fr = $analysisTranslations[$analysis->name] ?? $analysis->name;
+                $analysis->prep_ar = $analysis->preparation_instructions;
+                $analysis->prep_fr = $instructionTranslations[$analysis->preparation_instructions] ?? null;
+            }
+
+            // Generate QR code
+            $barcode = null;
+            if (extension_loaded('gd')) {
+                $qrData = "VIST-" . $reservationRequest->id . " | Patient: " . $reservationRequest->name . " | Phone: " . $reservationRequest->phone;
+                $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+            }
+
+            // Generate PDF
+            $pdfContent = \Barryvdh\DomPDF\Facade\Pdf::loadView('reservation-pdf', [
+                'reservation' => $reservationRequest,
+                'barcode' => $barcode,
+            ])->setPaper('A4', 'portrait')->output();
+
+            // Save to temp file
+            $tempPath = storage_path('app/temp_reservation_' . $reservationRequest->id . '.pdf');
+            file_put_contents($tempPath, $pdfContent);
+
+            // Send email with PDF attachment
+            $analysisDate = \Carbon\Carbon::parse($request->analysis_date)->format('d/m/Y');
+            $subject = $smartMessage ? 'إرشاد هام وتأكيد موعد التحليل - labo.dz' : 'تأكيد حجز التحليل - labo.dz';
+
+            Mail::send('emails.booking-confirmed', [
+                'patientName' => $reservationRequest->name,
+                'reservationId' => $reservationRequest->id,
+                'analysisDate' => $analysisDate,
+                'analysisTime' => $request->time,
+                'analyses' => $analyses,
+                'smartMessage' => $smartMessage,
+            ], function ($message) use ($patientEmail, $reservationRequest, $tempPath, $subject) {
+                $message->to($patientEmail)
+                        ->subject($subject)
+                        ->attach($tempPath, [
+                            'as' => 'preparation_' . str_replace(' ', '_', $reservationRequest->name) . '.pdf',
+                            'mime' => 'application/pdf',
+                        ]);
+            });
+
+            // Clean up temp file
+            if (file_exists($tempPath)) {
+                unlink($tempPath);
+            }
+
+            Log::info('Booking confirmation email sent to: ' . $patientEmail);
+        } catch (\Exception $e) {
+            Log::error('Failed to send confirmation email: ' . $e->getMessage());
         }
     }
 
@@ -386,7 +582,7 @@ class reservationsController extends Controller
             }
         }
 
-        // 2. Run eligibility check for each analysis in the reservation
+        // Run eligibility check for each analysis in the reservation
         $statusMap = [
             'block' => 'INVALID',
             'warning' => 'VALID_WITH_NOTE',
@@ -399,6 +595,46 @@ class reservationsController extends Controller
             'READY' => 'ready',
         ];
 
+        // --- Start French Translation Map ---
+        $analysisTranslations = [
+            'تحليل الدم الشامل' => 'Numération Formule Sanguine (NFS)',
+            'تحليل السكر في الدم' => 'Glycémie à jeun',
+            'تحليل الكوليسترول والدهون' => 'Bilan Lipidique',
+            'تحليل وظائف الكبد' => 'Bilan Hépatique',
+            'تحليل وظائف الكلى' => 'Bilan Rénal',
+            'تحليل البول الكامل' => 'Examen des Urines (ECBU)',
+            'فصيلة الدم' => 'Groupage Sanguin',
+            'سرعة الترسيب' => 'Vitesse de Sédimentation (VS)',
+            'تحليل وظائف الغدة الدرقية' => 'Bilan Thyroïdien',
+            'تحليل فيتامين د' => 'Vitamine D',
+        ];
+
+        $questionTranslations = [
+            'هل أنت صائم حالياً؟' => 'Êtes-vous à jeun actuellement ?',
+            'منذ متى وأنت صائم؟' => 'Depuis combien de temps êtes-vous à jeun ?',
+            'هل تتناول أي أدوية حالياً؟' => 'Prenez-vous des médicaments actuellement ?',
+            'هل تعاني من أي أمراض مزمنة؟' => 'Souffrez-vous de maladies chroniques ?',
+            'هل أجريت أي عمليات جراحية مؤخراً؟' => 'Avez-vous subi une chirurgie récemment ?',
+            'هل أنتِ حامل؟' => 'Êtes-vous enceinte ?',
+            'هل تعاني من حساسية تجاه أدوية معينة؟' => 'Avez-vous des allergies médicamenteuses ?',
+        ];
+
+        $optionTranslations = [
+            'نعم' => 'Oui',
+            'لا' => 'Non',
+            'أكثر من 8 ساعات' => 'Plus de 8 heures',
+            'أقل من 8 ساعات' => 'Moins de 8 heures',
+            'سكر' => 'Diabète',
+            'ضغط' => 'Hypertension',
+        ];
+
+        $instructionTranslations = [
+            'لا يتطلب صيام. يمكن إجراء التحليل في أي وقت.' => 'À jeun non requis. Peut être effectué à tout moment.',
+            'يتطلب الصيام لمدة 8-12 ساعة قبل التحليل. يُسمح بشرب الماء فقط.' => 'Jeûne de 8 à 12 heures requis. Seule l\'eau est autorisée.',
+            'يتطلب الصيام لمدة 12 ساعة قبل التحليل. تجنب الأطعمة الدسمة في اليوم السابق.' => 'Jeûne de 12 heures requis. Éviter les aliments gras la veille.',
+        ];
+        // --- End French Translation Map ---
+
         $results = [];
         foreach ($reservation->reservationAnalyses as $resAnalysis) {
             try {
@@ -410,22 +646,36 @@ class reservationsController extends Controller
                 // Update database status
                 $resAnalysis->update(['status' => $viewStatus]);
 
+                // Translate notes
+                $translatedNotes = [];
+                if (isset($checkResult['notes'])) {
+                    foreach ($checkResult['notes'] as $note) {
+                        // Split note if it's "Question: Option"
+                        if (str_contains($note, ': ')) {
+                            [$q, $o] = explode(': ', $note, 2);
+                            $translatedNotes[] = ($questionTranslations[$q] ?? $q) . ': ' . ($optionTranslations[$o] ?? $o);
+                        } else {
+                            $translatedNotes[] = $questionTranslations[$note] ?? $note;
+                        }
+                    }
+                }
+
                 $results[] = [
                     'analysis_id' => $resAnalysis->id,
-                    'name' => $resAnalysis->analyse ? $resAnalysis->analyse->name : "Analysis #{$resAnalysis->analysis_id}",
-                    'status' => $viewStatus, // for frontend UI
+                    'name' => $resAnalysis->analyse ? ($analysisTranslations[$resAnalysis->analyse->name] ?? $resAnalysis->analyse->name) : "Analysis #{$resAnalysis->analysis_id}",
+                    'status' => $viewStatus,
                     'fasting_valid' => ($jsonStatus !== 'INVALID'),
-                    'eligibility_status' => $jsonStatus, // for user requested JSON
-                    'notes' => $checkResult['notes'] ?? [],
+                    'eligibility_status' => $jsonStatus,
+                    'notes' => $translatedNotes,
                     'action' => $checkResult['status'],
                 ];
             } catch (\Exception $e) {
                 \Log::error("Error checking eligibility for analysis {$resAnalysis->analysis_id}: " . $e->getMessage());
                 $results[] = [
                     'analysis_id' => $resAnalysis->id,
-                    'name' => $resAnalysis->analyse ? $resAnalysis->analyse->name : "Analysis #{$resAnalysis->analysis_id}",
+                    'name' => $resAnalysis->analyse ? ($analysisTranslations[$resAnalysis->analyse->name] ?? $resAnalysis->analyse->name) : "Analysis #{$resAnalysis->analysis_id}",
                     'status' => 'ready',
-                    'notes' => ["خطأ داخلي أثناء التقييم: " . $e->getMessage()],
+                    'notes' => ["Erreur interne: " . $e->getMessage()],
                     'action' => 'eligible',
                 ];
             }
@@ -436,12 +686,12 @@ class reservationsController extends Controller
         if (request()->ajax() || request()->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'تم تحديث حالة أهلية جميع التحاليل بنجاح.',
+                'message' => 'L\'évaluation a été mise à jour avec succès.',
                 'results' => $results,
             ]);
         }
 
-        return redirect()->route('reservations')->with('success', 'تم تحديث حالة أهلية جميع التحاليل بنجاح.');
+        return redirect()->route('reservations')->with('success', 'L\'évaluation a été mise à jour avec succès.');
     }
 
     /**
@@ -474,15 +724,62 @@ class reservationsController extends Controller
      */
     public function showEligibilityResults(AnalysisEligibilityService $eligibilityService, $id)
     {
+        \App::setLocale('fr');
         $reservation = Reservation::with(['patient', 'reservationAnalyses.analyse'])->findOrFail($id);
+
+        // --- Translation Maps ---
+        $analysisTranslations = [
+            'تحليل الدم الشامل' => 'Numération Formule Sanguine (NFS)',
+            'تحليل السكر في الدم' => 'Glycémie à jeun',
+            'تحليل الكوليسترول والدهون' => 'Bilan Lipidique',
+            'تحليل وظائف الكبد' => 'Bilan Hépatique',
+            'تحليل وظائف الكلى' => 'Bilan Rénal',
+            'تحليل البول الكامل' => 'Examen des Urines (ECBU)',
+            'فصيلة الدم' => 'Groupage Sanguin',
+            'سرعة الترسيب' => 'Vitesse de Sédimentation (VS)',
+            'تحليل وظائف الغدة الدرقية' => 'Bilan Thyroïdien',
+            'تحليل فيتامين د' => 'Vitamine D',
+        ];
+
+        $questionTranslations = [
+            'هل أنت صائم حالياً؟' => 'Êtes-vous à jeun actuellement ?',
+            'منذ متى وأنت صائم؟' => 'Depuis combien de temps êtes-vous à jeun ?',
+            'هل تتناول أي أدوية حالياً؟' => 'Prenez-vous des médicaments actuellement ?',
+            'هل تعاني من أي أمراض مزمنة؟' => 'Souffrez-vous de maladies chroniques ?',
+            'هل أجريت أي عمليات جراحية مؤخراً؟' => 'Avez-vous subi une chirurgie récemment ?',
+            'هل أنتِ حامل؟' => 'Êtes-vous enceinte ?',
+            'هل تعاني من حساسية تجاه أدوية معينة؟' => 'Avez-vous des allergies médicamenteuses ?',
+        ];
+
+        $optionTranslations = [
+            'نعم' => 'Oui',
+            'لا' => 'Non',
+            'أكثر من 8 ساعات' => 'Plus de 8 heures',
+            'أقل من 8 ساعات' => 'Moins de 8 heures',
+            'سكر' => 'Diabète',
+            'ضغط' => 'Hypertension',
+        ];
 
         $results = [];
         foreach ($reservation->reservationAnalyses as $resAnalysis) {
             $checkResult = $eligibilityService->checkEligibility($reservation->patient_id, $resAnalysis->analysis_id);
+            
+            $translatedNotes = [];
+            if (isset($checkResult['notes'])) {
+                foreach ($checkResult['notes'] as $note) {
+                    if (str_contains($note, ': ')) {
+                        [$q, $o] = explode(': ', $note, 2);
+                        $translatedNotes[] = ($questionTranslations[$q] ?? $q) . ': ' . ($optionTranslations[$o] ?? $o);
+                    } else {
+                        $translatedNotes[] = $questionTranslations[$note] ?? $note;
+                    }
+                }
+            }
+
             $results[] = [
-                'name' => $resAnalysis->analyse->name,
+                'name' => $resAnalysis->analyse ? ($analysisTranslations[$resAnalysis->analyse->name] ?? $resAnalysis->analyse->name) : "Analysis #{$resAnalysis->analysis_id}",
                 'status' => $checkResult['status'],
-                'notes' => $checkResult['notes'] ?? []
+                'notes' => $translatedNotes
             ];
         }
 
@@ -495,16 +792,27 @@ class reservationsController extends Controller
             ->whereHas('question', function($query) use ($analyseIds) {
                 $query->whereIn('analyse_id', $analyseIds);
             })
-            ->get()
-            ->groupBy('question_id');
+            ->get();
 
-    // Generate Professional QR Code (Base64 for reliability, Null-safe)
-    $patientName = $reservation->patient->name ?? $reservation->name ?? 'Patient';
-    $patientPhone = $reservation->patient->phone ?? $reservation->phone ?? 'N/A';
-    $qrData = "VIST-" . $reservation->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
-    $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+        // Translate questions and options in patientAnswers
+        foreach ($patientAnswers as $ans) {
+            if ($ans->question) {
+                $ans->question->question = $questionTranslations[$ans->question->question] ?? $ans->question->question;
+            }
+            if ($ans->option) {
+                $ans->option->text = $optionTranslations[$ans->option->text] ?? $ans->option->text;
+            }
+        }
 
-    return view('Adminstration.eligibility-results', compact('reservation', 'results', 'patientAnswers', 'barcode'));
+        $patientAnswers = $patientAnswers->groupBy('question_id');
+
+        // Generate Professional QR Code
+        $patientName = $reservation->patient->name ?? $reservation->name ?? 'Patient';
+        $patientPhone = $reservation->patient->phone ?? $reservation->phone ?? 'N/A';
+        $qrData = "VIST-" . $reservation->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
+        $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+
+        return view('Adminstration.eligibility-results', compact('reservation', 'results', 'patientAnswers', 'barcode'));
     }
 
     /**
@@ -512,15 +820,62 @@ class reservationsController extends Controller
      */
     public function printEligibilityReport(AnalysisEligibilityService $eligibilityService, $id)
     {
+        \App::setLocale('fr');
         $reservation = Reservation::with(['patient', 'reservationAnalyses.analyse'])->findOrFail($id);
+
+        // --- Translation Maps ---
+        $analysisTranslations = [
+            'تحليل الدم الشامل' => 'Numération Formule Sanguine (NFS)',
+            'تحليل السكر في الدم' => 'Glycémie à jeun',
+            'تحليل الكوليسترول والدهون' => 'Bilan Lipidique',
+            'تحليل وظائف الكبد' => 'Bilan Hépatique',
+            'تحليل وظائف الكلى' => 'Bilan Rénal',
+            'تحليل البول الكامل' => 'Examen des Urines (ECBU)',
+            'فصيلة الدم' => 'Groupage Sanguin',
+            'سرعة الترسيب' => 'Vitesse de Sédimentation (VS)',
+            'تحليل وظائف الغدة الدرقية' => 'Bilan Thyroïdien',
+            'تحليل فيتامين د' => 'Vitamine D',
+        ];
+
+        $questionTranslations = [
+            'هل أنت صائم حالياً؟' => 'Êtes-vous à jeun actuellement ?',
+            'منذ متى وأنت صائم؟' => 'Depuis combien de temps êtes-vous à jeun ?',
+            'هل تتناول أي أدوية حالياً؟' => 'Prenez-vous des médicaments actuellement ?',
+            'هل تعاني من أي أمراض مزمنة؟' => 'Souffrez-vous de maladies chroniques ?',
+            'هل أجريت أي عمليات جراحية مؤخراً؟' => 'Avez-vous subi une chirurgie récemment ?',
+            'هل أنتِ حامل؟' => 'Êtes-vous enceinte ?',
+            'هل تعاني من حساسية تجاه أدوية معينة؟' => 'Avez-vous des allergies médicamenteuses ?',
+        ];
+
+        $optionTranslations = [
+            'نعم' => 'Oui',
+            'لا' => 'Non',
+            'أكثر من 8 ساعات' => 'Plus de 8 heures',
+            'أقل من 8 ساعات' => 'Moins de 8 heures',
+            'سكر' => 'Diabète',
+            'ضغط' => 'Hypertension',
+        ];
 
         $results = [];
         foreach ($reservation->reservationAnalyses as $resAnalysis) {
             $checkResult = $eligibilityService->checkEligibility($reservation->patient_id, $resAnalysis->analysis_id);
+            
+            $translatedNotes = [];
+            if (isset($checkResult['notes'])) {
+                foreach ($checkResult['notes'] as $note) {
+                    if (str_contains($note, ': ')) {
+                        [$q, $o] = explode(': ', $note, 2);
+                        $translatedNotes[] = ($questionTranslations[$q] ?? $q) . ': ' . ($optionTranslations[$o] ?? $o);
+                    } else {
+                        $translatedNotes[] = $questionTranslations[$note] ?? $note;
+                    }
+                }
+            }
+
             $results[] = [
-                'name' => $resAnalysis->analyse->name,
+                'name' => $resAnalysis->analyse ? ($analysisTranslations[$resAnalysis->analyse->name] ?? $resAnalysis->analyse->name) : "Analysis #{$resAnalysis->analysis_id}",
                 'status' => $checkResult['status'],
-                'notes' => $checkResult['notes'] ?? []
+                'notes' => $translatedNotes
             ];
         }
 
@@ -531,15 +886,26 @@ class reservationsController extends Controller
             ->whereHas('question', function($query) use ($analyseIds) {
                 $query->whereIn('analyse_id', $analyseIds);
             })
-            ->get()
-            ->groupBy('question_id');
+            ->get();
 
-    // Generate Professional QR Code (Base64 for reliability, Null-safe)
-    $patientName = $reservation->patient->name ?? $reservation->name ?? 'Patient';
-    $patientPhone = $reservation->patient->phone ?? $reservation->phone ?? 'N/A';
-    $qrData = "VIST-" . $reservation->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
-    $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+        // Translate questions and options in patientAnswers
+        foreach ($patientAnswers as $ans) {
+            if ($ans->question) {
+                $ans->question->question = $questionTranslations[$ans->question->question] ?? $ans->question->question;
+            }
+            if ($ans->option) {
+                $ans->option->text = $optionTranslations[$ans->option->text] ?? $ans->option->text;
+            }
+        }
 
-    return view('Adminstration.eligibility-report', compact('reservation', 'results', 'patientAnswers', 'barcode'));
+        $patientAnswers = $patientAnswers->groupBy('question_id');
+
+        // Generate Professional QR Code
+        $patientName = $reservation->patient->name ?? $reservation->name ?? 'Patient';
+        $patientPhone = $reservation->patient->phone ?? $reservation->phone ?? 'N/A';
+        $qrData = "VIST-" . $reservation->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
+        $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+
+        return view('Adminstration.eligibility-report', compact('reservation', 'results', 'patientAnswers', 'barcode'));
     }
 }

@@ -101,3 +101,12 @@ Route::middleware('auth:administrator')->group(function () {
         Route::patch('/{id}/mark-as-read', [messagesController::class, 'markAsRead'])->name('messages.markAsRead');
     });
 });
+
+// Patient Portal Routes
+Route::prefix('portal')->group(function () {
+    Route::get('/', [\App\Http\Controllers\PatientPortalController::class, 'showLogin'])->name('patient.login');
+    Route::post('/access', [\App\Http\Controllers\PatientPortalController::class, 'access'])->name('patient.access');
+    Route::get('/dashboard', [\App\Http\Controllers\PatientPortalController::class, 'dashboard'])->name('patient.dashboard');
+    Route::get('/download/{id}', [\App\Http\Controllers\PatientPortalController::class, 'downloadResult'])->name('patient.download');
+    Route::post('/logout', [\App\Http\Controllers\PatientPortalController::class, 'logout'])->name('patient.logout');
+});
