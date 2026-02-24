@@ -286,4 +286,9 @@ return [
     'analyses_performed' => 'Analyses Effectuées',
     'download_official_result_pdf' => 'Télécharger le rapport officiel (PDF)',
     'results_not_yet_validated' => 'Les résultats sont en cours de validation par le laboratoire.',
+    'referred_by' => 'Référé par',
+    'notify' => 'Notifier',
+    'notify_patient' => 'Patient',
+    'notify_doctor' => 'Médecin',
+    'notify_both' => 'Les deux',
 ];

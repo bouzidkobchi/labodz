@@ -291,4 +291,9 @@ return [
     'analyses_performed' => 'التحاليل المجرية',
     'download_official_result_pdf' => 'تحميل التقرير الرسمي (PDF)',
     'results_not_yet_validated' => 'النتائج قيد التدقيق من قبل المختبر.',
+    'referred_by' => 'بواسطة الطبيب',
+    'notify' => 'تنبيه',
+    'notify_patient' => 'المريض',
+    'notify_doctor' => 'الطبيب',
+    'notify_both' => 'الكل',
 ];

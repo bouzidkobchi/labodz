@@ -87,6 +87,8 @@ Route::middleware('auth:administrator')->group(function () {
         Route::get('/{id}/eligibility-results', [reservationsController::class, 'showEligibilityResults'])->name('admin.bookings.eligibility.results');
         Route::get('/{id}/print-report', [reservationsController::class, 'printEligibilityReport'])->name('admin.bookings.eligibility.print');
         Route::put('/analysis/{id}/status', [reservationsController::class, 'updateAnalysisStatus'])->name('admin.bookings.analysis.status.update');
+        Route::put('/{id}/referral', [reservationsController::class, 'updateReferral'])->name('admin.bookings.referral.update');
+        Route::post('/{id}/notify', [reservationsController::class, 'notifyParticipants'])->name('admin.bookings.notify');
     });
 
     // Analyses & Protocol

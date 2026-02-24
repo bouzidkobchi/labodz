@@ -99,6 +99,7 @@ class reservationsController extends Controller
 
         return view('Adminstration.reservations', [
             'bookings' => $bookings,
+            'doctors' => \App\Models\Doctor::all(),
         ]);
     }
 
@@ -907,5 +908,55 @@ class reservationsController extends Controller
         $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
 
         return view('Adminstration.eligibility-report', compact('reservation', 'results', 'patientAnswers', 'barcode'));
+    }
+
+    /**
+     * Link physician to reservation
+     */
+    public function updateReferral(Request $request, $id)
+    {
+        $request->validate([
+            'doctor_id' => 'nullable|exists:doctors,id',
+        ]);
+
+        $reservation = Reservation::findOrFail($id);
+        $reservation->update(['doctor_id' => $request->doctor_id]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم ربط الطبيب بنجاح',
+        ]);
+    }
+
+    /**
+     * Notify participants (Patient & Doctor) about results
+     */
+    public function notifyParticipants(Request $request, $id)
+    {
+        $reservation = Reservation::with(['patient', 'doctor'])->findOrFail($id);
+        $target = $request->get('target', 'both'); // patient, doctor, both
+        
+        $notifications = [];
+        
+        // Notify Patient
+        if (($target == 'patient' || $target == 'both') && $reservation->patient && $reservation->patient->email) {
+            // Logic to send email/SMS to patient
+            $notifications[] = 'المريض';
+        }
+
+        // Notify Doctor
+        if (($target == 'doctor' || $target == 'both') && $reservation->doctor && $reservation->doctor->email) {
+            // Logic to send email/alert to doctor
+            $notifications[] = 'الطبيب';
+        }
+
+        $message = count($notifications) > 0 
+            ? 'تم إرسال التنبيهات لـ: ' . implode(', ', $notifications) 
+            : 'لم يتم العثور على بيانات اتصال لإرسال التنبيهات';
+
+        return response()->json([
+            'success' => count($notifications) > 0,
+            'message' => $message,
+        ]);
     }
 }

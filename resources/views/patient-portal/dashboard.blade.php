@@ -241,6 +241,16 @@
                                     </span>
                                 </div>
                             </div>
+                            @if($reservation->doctor)
+                            <div class="col-md-3 col-6">
+                                <div class="info-label">{{ __('messages.referred_by') }}</div>
+                                <div class="info-value text-primary">
+                                    <i class="fas fa-user-md me-1"></i>
+                                    {{ $reservation->doctor->name }}
+                                </div>
+                                <div class="text-muted small">{{ $reservation->doctor->specialty }}</div>
+                            </div>
+                            @endif
                         </div>
                     </div>
                 </div>

@@ -144,6 +144,12 @@
                     <div class="info-label">{{ __('messages.gender') }}</div>
                     <div class="info-value">{{ __('messages.' . $reservation->patient->gender) }}</div>
                 </div>
+                @if($reservation->doctor)
+                <div>
+                    <div class="info-label">{{ __('messages.referred_by') }}</div>
+                    <div class="info-value"><i class="fas fa-user-md me-1 text-primary"></i> {{ $reservation->doctor->name }}</div>
+                </div>
+                @endif
             </div>
 
             <div class="p-4 px-5">

@@ -59,7 +59,7 @@ class PatientPortalController extends Controller
             return redirect()->route('patient.login');
         }
 
-        $reservation = Reservation::with(['patient', 'reservationAnalyses.analyse', 'reminders'])
+        $reservation = Reservation::with(['patient', 'doctor', 'reservationAnalyses.analyse', 'reminders'])
             ->where('id', $reservationId)
             ->firstOrFail();
 
