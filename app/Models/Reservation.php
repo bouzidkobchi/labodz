@@ -24,6 +24,11 @@ class Reservation extends Model
         return $this->belongsTo(Patient::class);
     }
 
+    public function doctor()
+    {
+        return $this->belongsTo(Doctor::class);
+    }
+
     public function reservationAnalyses()
     {
         return $this->hasMany(ReservationAnalysis::class);

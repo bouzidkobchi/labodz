@@ -19,21 +19,45 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/lang/{locale}', function ($locale) {
-    if (in_array($locale, ['ar', 'fr'])) {
-        session(['locale' => $locale]);
-    }
-    return back();
-})->name('lang.switch');
-
-// Public Routes
+// ==========================================================================
+// 1. PUBLIC ROUTES
+// ==========================================================================
 Route::get('/', [Labo_dzController::class, 'index'])->name('home');
 Route::post('/booking', [Labo_dzController::class, 'booking'])->name('booking');
 Route::post('/message', [Labo_dzController::class, 'message'])->name('message');
 Route::get('/analysis-info', [Labo_dzController::class, 'analysisInfo'])->name('analysis.info');
-Route::get('/reservation/{id}/pdf', [\App\Http\Controllers\PdfController::class, 'generateReservationPdf'])->name('reservation.pdf');
 
-// Authentication Routes
+// ==========================================================================
+// 2. PATIENT PORTAL (Visit & Session Based)
+// ==========================================================================
+Route::prefix('portal')->group(function () {
+    Route::get('/', [\App\Http\Controllers\PatientPortalController::class, 'showLogin'])->name('patient.login');
+    Route::post('/access', [\App\Http\Controllers\PatientPortalController::class, 'access'])->name('patient.access');
+    Route::get('/dashboard', [\App\Http\Controllers\PatientPortalController::class, 'dashboard'])->name('patient.dashboard');
+    Route::get('/download/{id}', [\App\Http\Controllers\PatientPortalController::class, 'downloadResult'])->name('patient.download');
+    Route::post('/logout', [\App\Http\Controllers\PatientPortalController::class, 'logout'])->name('patient.logout');
+});
+
+// ==========================================================================
+// 3. PHYSICIAN PORTAL (Guard: doctor)
+// ==========================================================================
+Route::prefix('physician')->group(function () {
+    Route::middleware('guest:doctor')->group(function () {
+        Route::get('/login', [\App\Http\Controllers\DoctorAuthController::class, 'showLoginForm'])->name('doctor.login');
+        Route::post('/login', [\App\Http\Controllers\DoctorAuthController::class, 'login'])->name('doctor.login.submit');
+    });
+
+    Route::middleware('auth:doctor')->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\DoctorDashboardController::class, 'dashboard'])->name('doctor.dashboard');
+        Route::get('/patient-result/{id}', [\App\Http\Controllers\DoctorDashboardController::class, 'showPatientResult'])->name('doctor.patient.result');
+        Route::post('/logout', [\App\Http\Controllers\DoctorAuthController::class, 'logout'])->name('doctor.logout');
+    });
+});
+
+// ==========================================================================
+// 4. ADMINISTRATIVE PANEL (Guard: administrator)
+// ==========================================================================
+// Admin Auth
 Route::middleware('guest:administrator')->group(function () {
     Route::get('/auth', [authController::class, 'showLoginForm'])->name('admin.login');
     Route::post('/auth/login', [authController::class, 'administrator_login'])->name('auth.administrator');
@@ -41,38 +65,31 @@ Route::middleware('guest:administrator')->group(function () {
 
 Route::post('/auth/logout', [authController::class, 'logout'])->name('administrator.logout')->middleware('auth:administrator');
 
-// Admin (Dashboard) Routes
+// Admin Protected Area
 Route::middleware('auth:administrator')->group(function () {
-    // Dashboard Main
     Route::get('/dashboard', [dashboradController::class, 'dashboard'])->name('dashboard');
 
-    // Reservations
+    // Reservations & Eligibility
     Route::prefix('dashboard/reservations')->group(function () {
         Route::get('/', [reservationsController::class, 'reservations'])->name('reservations');
         Route::get('/filter', [reservationsController::class, 'filterReservations'])->name('filter.reservations');
         Route::put('/{id}', [reservationsController::class, 'updateBookingStatus'])->name('admin.bookings.update');
 
-        // Reservation Requests
         Route::get('/requests', [reservationsController::class, 'reservationRequests'])->name('reservation.requests');
         Route::post('/requests/{id}/confirm', [reservationsController::class, 'confirmRequest'])->name('reservation.requests.confirm');
         Route::post('/requests/{id}/reject', [reservationsController::class, 'rejectRequest'])->name('reservation.requests.reject');
 
-        // Execution Eligibility Check
         Route::post('/{id}/check-eligibility', [reservationsController::class, 'checkExecutionEligibility'])->name('admin.bookings.check-eligibility');
         Route::get('/{id}/eligibility-check', [reservationsController::class, 'showEligibilityCheck'])->name('admin.bookings.eligibility.form');
         Route::post('/{id}/eligibility-check', [reservationsController::class, 'submitEligibilityCheck'])->name('admin.bookings.eligibility.submit');
-
-        // Unified Reservation Eligibility Check
         Route::get('/{id}/full-eligibility', [reservationsController::class, 'showFullEligibilityCheck'])->name('admin.bookings.full-eligibility.form');
         Route::post('/{id}/full-eligibility', [reservationsController::class, 'submitFullEligibilityCheck'])->name('admin.bookings.full-eligibility.submit');
         Route::get('/{id}/eligibility-results', [reservationsController::class, 'showEligibilityResults'])->name('admin.bookings.eligibility.results');
         Route::get('/{id}/print-report', [reservationsController::class, 'printEligibilityReport'])->name('admin.bookings.eligibility.print');
-
-        // Individual Analysis Status Update
         Route::put('/analysis/{id}/status', [reservationsController::class, 'updateAnalysisStatus'])->name('admin.bookings.analysis.status.update');
     });
 
-    // Analyses
+    // Analyses & Protocol
     Route::prefix('dashboard/analyses')->group(function () {
         Route::get('/', [analysesController::class, 'analyses'])->name('analyses');
         Route::get('/create', [analysesController::class, 'createAnalysis'])->name('analyses.create');
@@ -83,7 +100,6 @@ Route::middleware('auth:administrator')->group(function () {
         Route::put('/{id}/toggle-availability', [analysesController::class, 'toggleAvailability'])->name('analyses.toggle-availability');
     });
 
-    // Eligibility Management
     Route::prefix('dashboard/eligibility')->group(function () {
         Route::get('/{analysis_id}', [\App\Http\Controllers\EligibilityController::class, 'manage'])->name('eligibility.manage');
         Route::post('/{analysis_id}/questions', [\App\Http\Controllers\EligibilityController::class, 'storeQuestion'])->name('eligibility.questions.store');
@@ -92,7 +108,7 @@ Route::middleware('auth:administrator')->group(function () {
         Route::delete('/options/{id}', [\App\Http\Controllers\EligibilityController::class, 'destroyOption'])->name('eligibility.options.destroy');
     });
 
-    // Messages
+    // CRM & Communications
     Route::prefix('dashboard/messages')->group(function () {
         Route::get('/', [messagesController::class, 'messages'])->name('messages');
         Route::post('/send', [messagesController::class, 'sendMessage'])->name('messages.send');
@@ -102,11 +118,12 @@ Route::middleware('auth:administrator')->group(function () {
     });
 });
 
-// Patient Portal Routes
-Route::prefix('portal')->group(function () {
-    Route::get('/', [\App\Http\Controllers\PatientPortalController::class, 'showLogin'])->name('patient.login');
-    Route::post('/access', [\App\Http\Controllers\PatientPortalController::class, 'access'])->name('patient.access');
-    Route::get('/dashboard', [\App\Http\Controllers\PatientPortalController::class, 'dashboard'])->name('patient.dashboard');
-    Route::get('/download/{id}', [\App\Http\Controllers\PatientPortalController::class, 'downloadResult'])->name('patient.download');
-    Route::post('/logout', [\App\Http\Controllers\PatientPortalController::class, 'logout'])->name('patient.logout');
-});
+// Utilities
+Route::get('/lang/{locale}', function ($locale) {
+    if (in_array($locale, ['ar', 'fr'])) {
+        session(['locale' => $locale]);
+    }
+    return back();
+})->name('lang.switch');
+
+Route::get('/reservation/{id}/pdf', [\App\Http\Controllers\PdfController::class, 'generateReservationPdf'])->name('reservation.pdf');
