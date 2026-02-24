@@ -52,6 +52,7 @@
                             <th>{{ __('messages.gender') }}</th>
                             <th>{{ __('messages.birth_date') }}</th>
                             <th>{{ __('messages.analysis_types') }}</th>
+                            <th>{{ __('messages.prescription') }}</th>
                             <th>{{ __('messages.preferred_date') }}</th>
                             <th>{{ __('messages.preferred_time') }}</th>
                             <th>{{ __('messages.status') }}</th>
@@ -74,6 +75,15 @@
                                     @endforeach
                                 @else
                                     {{ $requestItem->analyse->name ?? 'غير متوفر' }}
+                                @endif
+                            </td>
+                            <td>
+                                @if($requestItem->prescription_path)
+                                    <a href="{{ asset('storage/' . $requestItem->prescription_path) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-file-medical"></i> {{ __('messages.view_prescription') }}
+                                    </a>
+                                @else
+                                    <span class="text-muted small">{{ __('messages.no_prescription') }}</span>
                                 @endif
                             </td>
                             <td>{{ $requestItem->preferred_date ? \Carbon\Carbon::parse($requestItem->preferred_date)->format('Y-m-d') : 'غير محدد' }}</td>
@@ -138,6 +148,21 @@
                                                     <p>{{ $requestItem->analyse->name ?? 'غير متوفر' }}</p>
                                                 @endif
                                             </div>
+                                            @if($requestItem->prescription_path)
+                                            <div class="mb-3">
+                                                <label class="form-label">{{ __('messages.attached_prescription') }}</label>
+                                                <div class="p-2 border rounded bg-light text-center">
+                                                    <a href="{{ asset('storage/' . $requestItem->prescription_path) }}" target="_blank" class="d-block">
+                                                        <img src="{{ asset('storage/' . $requestItem->prescription_path) }}" alt="Prescription" class="img-fluid rounded shadow-sm" style="max-height: 200px;">
+                                                    </a>
+                                                    <div class="mt-2">
+                                                        <a href="{{ asset('storage/' . $requestItem->prescription_path) }}" target="_blank" class="btn btn-sm btn-primary">
+                                                            <i class="fas fa-external-link-alt"></i> {{ __('messages.view_full') }}
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @endif
                                             <div class="mb-3">
                                                 <label for="analysis_date{{ $requestItem->id }}" class="form-label">{{ __('messages.analysis_date_label') }}</label>
                                                 <input type="date" name="analysis_date" id="analysis_date{{ $requestItem->id }}" class="form-control"
@@ -199,7 +224,7 @@
                                 <div class="modal-content">
                                     <div class="modal-header">
                                         <h5 class="modal-title">{{ __('messages.admin_notes') }}</h5>
-+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                     </div>
                                     <div class="modal-body">
                                         <p>{{ $requestItem->admin_notes }}</p>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>معلومات التحاليل - مخبر المنيعة</title>
+    <title>معلومات التحاليل - labo.dz</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="{{ asset('css/style.css') }}" rel="stylesheet">
 </head>
@@ -83,7 +83,7 @@
     <footer>
         <div class="footer-content">
             <div class="footer-section">
-                <h3>مخبر المنيعة</h3>
+                <h3>labo.dz</h3>
                 <p>نقدم خدمات تحليلية دقيقة باستخدام أحدث التقنيات الطبية والكوادر المؤهلة لتقديم أفضل خدمة للمرضى.</p>
                 <div class="social-icons">
                     <a href="#"><i class="fab fa-facebook-f"></i></a>
@@ -101,14 +101,14 @@
             </div>
             <div class="footer-section">
                 <h3>معلومات الاتصال</h3>
-                <p><i class="fas fa-map-marker-alt"></i> العنوان: شارع الاستقلال، المنيعة</p>
+                <p><i class="fas fa-map-marker-alt"></i> العنوان: labo.dz</p>
                 <p><i class="fas fa-phone"></i> الهاتف: 0550123456</p>
                 <p><i class="fas fa-envelope"></i> البريد: info@labo-dz.com</p>
                 <p><i class="fas fa-clock"></i> أوقات العمل: 8:00 - 18:00</p>
             </div>
         </div>
         <div class="copyright">
-            <p>جميع الحقوق محفوظة &copy; 2023 مخبر المنيعة - Labo_dz</p>
+            <p>جميع الحقوق محفوظة &copy; 2023 labo.dz - Labo_dz</p>
         </div>
     </footer>
 

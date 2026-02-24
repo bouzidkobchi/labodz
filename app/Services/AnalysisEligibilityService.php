@@ -48,7 +48,9 @@ class AnalysisEligibilityService
                     }
 
                     // Add note if provided in rule or generate from question
-                    $notes[] = $rule->question->question . ': ' . $rule->option->text;
+                    $questionText = $rule->question ? $rule->question->question : "Question #{$rule->question_id}";
+                    $optionText = $rule->option ? $rule->option->text : "Option #{$rule->disallowed_option_id}";
+                    $notes[] = "$questionText: $optionText";
                 }
             }
         }

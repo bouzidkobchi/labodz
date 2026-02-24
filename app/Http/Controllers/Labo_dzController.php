@@ -38,16 +38,25 @@ class Labo_dzController extends Controller
             'email' => 'nullable|email',
             'gender' => 'required|in:male,female',
             'birth_date' => 'required|date',
-            'analysisTypes' => 'required|array|min:1',
+            'analysisTypes' => 'required_without:prescription|array',
             'analysisTypes.*' => 'exists:analyses,id',
             'date' => 'nullable|date',
             'time' => 'nullable',
+            'prescription' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
         try {
+            // Handle prescription upload
+            $prescriptionPath = null;
+            if ($request->hasFile('prescription')) {
+                $file = $request->file('prescription');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $prescriptionPath = $file->storeAs('prescriptions', $filename, 'public');
+            }
+
             // Create reservation request with patient info
             $requestReservation = Request_reservation::create([
                 'name' => $request->name,
@@ -58,20 +67,40 @@ class Labo_dzController extends Controller
                 'birth_date' => $request->birth_date,
                 'preferred_date' => $request->date,
                 'preferred_time' => $request->time,
+                'prescription_path' => $prescriptionPath,
                 'status' => 'pending',
             ]);
 
-            // Attach multiple analyses
-            $requestReservation->analyses()->attach($request->analysisTypes);
+            // Attach multiple analyses if present
+            if ($request->filled('analysisTypes')) {
+                $requestReservation->analyses()->attach($request->analysisTypes);
+            }
 
-            // Get analysis names for success message
-            $analyses = Analyse::whereIn('id', $request->analysisTypes)->get();
-            $analysisNames = $analyses->pluck('name')->implode(', ');
+            // Get analysis names and preparation instructions for success message/modal
+            $preparations = [];
+            $displayNames = [];
+            if ($request->filled('analysisTypes')) {
+                $analyses = Analyse::whereIn('id', $request->analysisTypes)->get();
+                foreach ($analyses as $analysis) {
+                    $displayNames[] = $analysis->name;
+                    if (!empty($analysis->preparation_instructions)) {
+                        $preparations[] = [
+                            'name' => $analysis->name,
+                            'instructions' => $analysis->preparation_instructions
+                        ];
+                    }
+                }
+            }
 
-            // Redirect with success message and trigger PDF download
+            $analysisNames = !empty($displayNames) 
+                ? ' للتحاليل التالية: ' . implode(', ', $displayNames) 
+                : ' مع وصفة طبية مرفقة ';
+
+            // Redirect with success message and trigger PDF download + Prep Modal
             return redirect()->back()
-                ->with('success', "تم إرسال طلب الحجز للتحاليل التالية: {$analysisNames} للسيد/ة {$request->name} بنجاح، سنتصل بك على الرقم {$request->phone} لتأكيد الحجز")
-                ->with('download_pdf', $requestReservation->id);
+                ->with('success', "تم إرسال طلب الحجز{$analysisNames} للسيد/ة {$request->name} بنجاح، سنتصل بك على الرقم {$request->phone} لتأكيد الحجز")
+                ->with('download_pdf', $requestReservation->id)
+                ->with('preparations', $preparations);
         } catch (\Exception $e) {
             Log::error('Booking error:', ['error' => $e->getMessage()]);
 

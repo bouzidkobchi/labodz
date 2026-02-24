@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ __('messages.admin_panel') }} - Labo_dz</title>
+    <title>{{ __('messages.lab_name') }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="{{ asset('css/style.css') }}" rel="stylesheet">
     <style>
@@ -32,6 +32,178 @@
         /* Fix for direction-dependent icons */
         [dir="ltr"] .fa-arrow-left { transform: rotate(180deg); }
         [dir="rtl"] .fa-arrow-right { transform: rotate(180deg); }
+
+        .preparation-box {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--accent-color);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-right: 5px solid var(--accent-color);
+        }
+        .preparation-box h3 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: var(--accent-color);
+        }
+        .preparation-box ul {
+            margin-bottom: 0;
+            padding-right: 20px;
+        }
+        .ocr-status {
+            margin-top: 10px;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+        .fa-spinner {
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .highlight-found {
+            animation: highlightPulse 2s ease;
+            background-color: rgba(0, 255, 127, 0.2) !important;
+            border-color: #00ff7f !important;
+        }
+        @keyframes highlightPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Notification Styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 9999;
+            display: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .notification.success { background: rgba(0, 255, 127, 0.8); border: 1px solid #00ff7f; }
+        .notification.error { background: rgba(255, 69, 0, 0.8); border: 1px solid #ff4500; }
+        .notification.info { background: rgba(30, 144, 255, 0.8); border: 1px solid #1e90ff; }
+        .notification.warning { background: rgba(255, 165, 0, 0.8); border: 1px solid #ffa500; }
+
+        /* Preparation Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 20px;
+        }
+        .prep-modal {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            overflow: hidden;
+            animation: modalFadeIn 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+            position: relative;
+        }
+        @keyframes modalFadeIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .prep-modal-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            position: relative;
+        }
+        .prep-modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .prep-modal-body {
+            padding: 30px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .prep-item {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-right: 5px solid var(--accent-color);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+        }
+        .prep-item:hover {
+            transform: scale(1.02);
+        }
+        .prep-item h4 {
+            margin: 0 0 10px 0;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .prep-item p {
+            margin: 0;
+            line-height: 1.6;
+            color: #4a5568;
+        }
+        .prep-modal-footer {
+            padding: 20px;
+            text-align: center;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+        .close-prep-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 50px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(49, 130, 206, 0.3);
+        }
+        .close-prep-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(49, 130, 206, 0.4);
+            background: #2b6cb0;
+        }
+        .prep-icon {
+            font-size: 2rem;
+            color: var(--accent-color);
+            margin-bottom: 15px;
+        }
+        .important-badge {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <script src="{{ asset('js/app.js') }}"></script>
@@ -47,6 +219,35 @@
 
     <!-- Notification -->
     <div id="notification" class="notification"></div>
+
+    <!-- Preparation Instructions Modal -->
+    <div id="prepModalOverlay" class="modal-overlay">
+        <div class="prep-modal">
+            <div class="prep-modal-header">
+                <i class="fas fa-exclamation-triangle prep-icon" style="color: white; margin-bottom: 10px;"></i>
+                <h2>{{ __('messages.important_preparation_instructions') }}</h2>
+            </div>
+            <div class="prep-modal-body">
+                <p class="text-center mb-4" style="color: #4a5568; font-weight: 500;">
+                    {{ __('messages.prep_modal_intro') }}
+                </p>
+                <div id="prepContainer">
+                    @if(session('preparations'))
+                        @foreach(session('preparations') as $prep)
+                            <div class="prep-item">
+                                <span class="important-badge"><i class="fas fa-biohazard"></i> {{ __('messages.required') }}</span>
+                                <h4><i class="fas fa-flask"></i> {{ $prep['name'] }}</h4>
+                                <p>{{ $prep['instructions'] }}</p>
+                            </div>
+                        @endforeach
+                    @endif
+                </div>
+            </div>
+            <div class="prep-modal-footer">
+                <button class="close-prep-btn" id="closePrepModal">{{ __('messages.i_understand') }}</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Success/Error Messages -->
     @if(session('success'))
@@ -73,21 +274,32 @@
 
     <!-- Navigation -->
     <nav>
-        <div class="lang-switcher-public" style="position: absolute; left: 20px; top: 20px; z-index: 1000;">
-            @if(app()->getLocale() == 'ar')
-                <a href="{{ route('lang.switch', 'fr') }}" class="btn-lang">Français</a>
-            @else
-                <a href="{{ route('lang.switch', 'ar') }}" class="btn-lang">العربية</a>
-            @endif
+        <div class="nav-container">
+            <div class="logo">
+                <a href="#home">{{ __('messages.lab_name') }}</a>
+            </div>
+            
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle Menu">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="lang-switcher-public">
+                @if(app()->getLocale() == 'ar')
+                    <a href="{{ route('lang.switch', 'fr') }}" class="btn-lang">Français</a>
+                @else
+                    <a href="{{ route('lang.switch', 'ar') }}" class="btn-lang">العربية</a>
+                @endif
+            </div>
+
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#home"><i class="fas fa-home"></i> {{ __('messages.home') }}</a></li>
+                <li><a href="#features"><i class="fas fa-star"></i> {{ __('messages.features') }}</a></li>
+                <li><a href="#analysis"><i class="fas fa-flask"></i> {{ __('messages.analysis') }}</a></li>
+                <li><a href="#tips"><i class="fas fa-lightbulb"></i> {{ __('messages.tips') }}</a></li>
+                <li><a href="#booking"><i class="fas fa-calendar-check"></i> {{ __('messages.booking') }}</a></li>
+                <li><a href="#contact"><i class="fas fa-envelope"></i> {{ __('messages.contact') }}</a></li>
+            </ul>
         </div>
-        <ul class="nav-links">
-            <li><a href="#home"><i class="fas fa-home"></i> {{ __('messages.home') }}</a></li>
-            <li><a href="#features"><i class="fas fa-star"></i> {{ __('messages.features') }}</a></li>
-            <li><a href="#analysis"><i class="fas fa-flask"></i> {{ __('messages.analysis') }}</a></li>
-            <li><a href="#tips"><i class="fas fa-lightbulb"></i> {{ __('messages.tips') }}</a></li>
-            <li><a href="#booking"><i class="fas fa-calendar-check"></i> {{ __('messages.booking') }}</a></li>
-            <li><a href="#contact"><i class="fas fa-envelope"></i> {{ __('messages.contact') }}</a></li>
-        </ul>
     </nav>
 
     <!-- Hero Section -->
@@ -163,7 +375,7 @@
         <div class="container">
             <h2><i class="fas fa-calendar-check"></i> {{ __('messages.booking') }}</h2>
             <p>{{ __('messages.booking_desc') }}</p>
-            <form id="bookingForm" action="{{ route('booking') }}" method="POST">
+            <form id="bookingForm" action="{{ route('booking') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="form-group">
                     <label for="name">{{ __('messages.full_name') }}</label>
@@ -189,6 +401,23 @@
                     <label for="birth_date">{{ __('messages.birth_date') }}</label>
                     <input type="date" id="birth_date" name="birth_date" required>
                 </div>
+                <div class="form-group ocr-section">
+                    <label for="prescription"><i class="fas fa-file-medical"></i> {{ __('تحميل الوصفة الطبية (اختياري)') }}</label>
+                    <div class="file-upload-wrapper">
+                        <input type="file" id="prescription" name="prescription" accept="image/*" class="file-input">
+                        <div class="ocr-status" id="ocrStatus" style="display:none;">
+                            <span class="spinner"><i class="fas fa-animated fa-spinner"></i></span>
+                            <span class="status-text">جاري قراءة الوصفة...</span>
+                        </div>
+                    </div>
+                    <small class="form-text text-muted">يمكنك تحميل صورة للوصفة الطبية وسيقوم النظام بمحاولة التعرف على التحاليل المطلوبة تلقائياً</small>
+                </div>
+
+                <div id="preparationBox" class="preparation-box" style="display:none;">
+                    <h3><i class="fas fa-info-circle"></i> تعليمات التحضير للتحاليل المختارة:</h3>
+                    <ul id="preparationList"></ul>
+                </div>
+
                 <div class="form-group">
                     <label>{{ __('messages.analysis_types') }} <span class="required">*</span></label>
 
@@ -196,7 +425,9 @@
                       @foreach ($analyses as $analysis)
                         @if($analysis->availability == 1)
                        <div class="checkbox-item">
-                  <input type="checkbox" name="analysisTypes[]" value="{{ $analysis->id }}" id="analysis_{{ $analysis->id }}">
+                  <input type="checkbox" name="analysisTypes[]" value="{{ $analysis->id }}" id="analysis_{{ $analysis->id }}" 
+                         data-name="{{ $analysis->name }}" data-code="{{ $analysis->code }}" 
+                         data-preparation="{{ $analysis->preparation_instructions }}">
                  <label for="analysis_{{ $analysis->id }}">{{ $analysis->name }}</label>
                   </div>
                        @endif
@@ -216,6 +447,136 @@
             </form>
         </div>
     </section>
+
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const prescriptionInput = document.getElementById('prescription');
+            const ocrStatus = document.getElementById('ocrStatus');
+            const checkboxes = document.querySelectorAll('input[name="analysisTypes[]"]');
+            const preparationBox = document.getElementById('preparationBox');
+            const preparationList = document.getElementById('preparationList');
+
+            // Function to update preparations
+            function updatePreparations() {
+                preparationList.innerHTML = '';
+                let hasPrep = false;
+                
+                checkboxes.forEach(cb => {
+                    if (cb.checked) {
+                        const prep = cb.getAttribute('data-preparation');
+                        if (prep && prep.trim() !== '') {
+                            const li = document.createElement('li');
+                            li.innerHTML = `<strong>${cb.getAttribute('data-name')}:</strong> ${prep}`;
+                            preparationList.appendChild(li);
+                            hasPrep = true;
+                        }
+                    }
+                });
+
+                preparationBox.style.display = hasPrep ? 'block' : 'none';
+            }
+
+            // Listen for checkbox changes
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', updatePreparations);
+            });
+
+            // OCR Logic
+            if (prescriptionInput) {
+                prescriptionInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    ocrStatus.style.display = 'block';
+                    ocrStatus.querySelector('.status-text').textContent = 'جاري قراءة الوصفة (قد يستغرق ذلك بضع ثوان)...';
+
+                    // Clear previous debug
+                    console.log("Starting OCR for:", file.name);
+
+                    Tesseract.recognize(
+                        file,
+                        'ara+fra+eng',
+                        { 
+                            logger: m => {
+                                if (m.status === 'recognizing text') {
+                                    ocrStatus.querySelector('.status-text').textContent = `جاري التعرف: ${Math.round(m.progress * 100)}%`;
+                                }
+                            } 
+                        }
+                    ).then(({ data: { text } }) => {
+                        console.log("Raw OCR Result:", text);
+                        ocrStatus.style.display = 'none';
+                        
+                        if (!text || text.trim().length < 5) {
+                            showNotification('لم يتم العثور على نص واضح في الصورة، يرجى التأكد من جودة الصورة', 'warning');
+                            return;
+                        }
+
+                        let foundCount = 0;
+                        const lowerText = text.toLowerCase();
+                        
+                        // Better normalization for matching
+                        const normalize = (str) => {
+                            if (!str) return '';
+                            return str.toLowerCase()
+                                .replace(/[^\w\u0621-\u064A]/g, ' ') // keep words and arabic chars, replace others with space
+                                .replace(/\s+/g, ' ') // collapse spaces
+                                .trim();
+                        };
+
+                        const normalizedInput = normalize(text);
+                        console.log("Normalized Input:", normalizedInput);
+
+                        checkboxes.forEach(cb => {
+                            const name = cb.getAttribute('data-name');
+                            const code = cb.getAttribute('data-code');
+                            
+                            const normalizedName = normalize(name);
+                            const normalizedCode = normalize(code);
+
+                            // Match Logic:
+                            // 1. Exact code match (e.g. CBC)
+                            // 2. Name as part of string
+                            // 3. Normalized name as part of normalized input
+                            let isMatch = false;
+                            
+                            if (code && lowerText.includes(code.toLowerCase())) {
+                                isMatch = true;
+                            } else if (name && text.includes(name)) {
+                                isMatch = true;
+                            } else if (normalizedName && normalizedName.length > 3 && normalizedInput.includes(normalizedName)) {
+                                isMatch = true;
+                            }
+
+                            if (isMatch) {
+                                if (!cb.checked) {
+                                    cb.checked = true;
+                                    cb.parentElement.classList.add('highlight-found'); // Visual feedback
+                                    setTimeout(() => cb.parentElement.classList.remove('highlight-found'), 3000);
+                                    foundCount++;
+                                }
+                            }
+                        });
+
+                        if (foundCount > 0) {
+                            showNotification(`رائع! تم التعرف على ${foundCount} تحاليل بنجاح`, 'success');
+                            updatePreparations();
+                        } else {
+                            showNotification('تمت القراءة بنجاح لكن لم نجد تحاليل مطابقة. جرب اختيارها يدوياً.', 'info');
+                            // Log what was found to console for debugging
+                            console.log("No matches found. Check if keywords exist in raw text.");
+                        }
+                    }).catch(err => {
+                        console.error("OCR Error:", err);
+                        ocrStatus.style.display = 'none';
+                        showNotification('عذراً، حدث خطأ أثناء المعالجة. يرجى المحاولة مرة أخرى.', 'error');
+                    });
+                });
+            }
+        });
+    </script>
 
     <!-- Contact Section -->
     <section id="contact" class="section">
@@ -303,16 +664,73 @@
 
             // 2. Client-side validation for analysis selection
             const bookingForm = document.getElementById('bookingForm');
+            const prescriptionInput = document.getElementById('prescription');
             if (bookingForm) {
                 bookingForm.addEventListener('submit', function(e) {
                     const checkboxes = this.querySelectorAll('input[name="analysisTypes[]"]:checked');
-                    if (checkboxes.length === 0) {
+                    const hasFile = prescriptionInput && prescriptionInput.files.length > 0;
+                    
+                    if (checkboxes.length === 0 && !hasFile) {
                         e.preventDefault();
-                        alert('{{ __('messages.at_least_one_analysis') }}');
+                        showNotification('{{ __('messages.at_least_one_analysis_or_prescription') }}', 'error');
                     }
                 });
             }
         });
+
+        // Global Notification Function
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            if (!notification) return;
+
+            notification.textContent = message;
+            notification.className = 'notification ' + type;
+            notification.style.display = 'block';
+
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+
+        // Preparation Modal Logic
+        const prepModalOverlay = document.getElementById('prepModalOverlay');
+        const closePrepModal = document.getElementById('closePrepModal');
+
+        @if(session('preparations') && count(session('preparations')) > 0)
+            prepModalOverlay.style.display = 'flex';
+        @endif
+
+        if (closePrepModal) {
+            closePrepModal.addEventListener('click', () => {
+                prepModalOverlay.style.display = 'none';
+            });
+        }
+
+        // Mobile Menu Toggle
+        const menuToggle = document.getElementById('menuToggle');
+        const navLinks = document.getElementById('navLinks');
+        
+        if (menuToggle && navLinks) {
+            menuToggle.addEventListener('click', () => {
+                navLinks.classList.toggle('active');
+                const icon = menuToggle.querySelector('i');
+                if (navLinks.classList.contains('active')) {
+                    icon.classList.remove('fa-bars');
+                    icon.classList.add('fa-times');
+                } else {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            });
+
+            // Close menu when clicking a link
+            navLinks.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => {
+                    navLinks.classList.remove('active');
+                    menuToggle.querySelector('i').classList.replace('fa-times', 'fa-bars');
+                });
+            });
+        }
     </script>
 </body>
 

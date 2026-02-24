@@ -59,6 +59,6 @@ class Analyse extends Model
 
     public function reservationAnalyses()
     {
-        return $this->hasMany(ReservationAnalysis::class);
+        return $this->hasMany(ReservationAnalysis::class, 'analysis_id');
     }
 }

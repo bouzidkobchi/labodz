@@ -57,6 +57,7 @@
                 <tr>
                     <th>#</th>
                     <th>{{ __('messages.customer') }}</th>
+                    <th>{{ __('messages.barcode') ?? 'Barcode' }}</th>
                     <th>{{ __('messages.phone') }}</th>
                     <th>{{ __('messages.analyses') }}</th>
                     <th>{{ __('messages.date') }}</th>
@@ -69,8 +70,14 @@
                 @foreach($bookings as $reservation)
                 <tr>
                     <td>{{ $loop->iteration + ($bookings->perPage() * ($bookings->currentPage() - 1)) }}</td>
-                    <td>{{ $reservation->patient->name }}</td>
-                    <td>{{ $reservation->patient->phone }}</td>
+                    <td>{{ $reservation->patient?->name }}</td>
+                    <td class="barcode-cell">
+                        <div class="bg-white p-1 rounded shadow-sm d-inline-block text-center" style="transform: scale(0.85); transform-origin: left center;">
+                            <img src="{{ $reservation->barcode }}" width="60" alt="Barcode" style="display: block; margin-bottom: 2px; margin-left: auto; margin-right: auto;">
+                            <span class="fw-bold text-uppercase text-muted" style="font-size: 6px;">Visit QR</span>
+                        </div>
+                    </td>
+                    <td>{{ $reservation->patient?->phone }}</td>
                     <td>
                         <div class="analyses-controls">
                             @foreach($reservation->reservationAnalyses as $resAnalysis)

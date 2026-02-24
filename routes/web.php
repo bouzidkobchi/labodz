@@ -66,6 +66,7 @@ Route::middleware('auth:administrator')->group(function () {
         Route::get('/{id}/full-eligibility', [reservationsController::class, 'showFullEligibilityCheck'])->name('admin.bookings.full-eligibility.form');
         Route::post('/{id}/full-eligibility', [reservationsController::class, 'submitFullEligibilityCheck'])->name('admin.bookings.full-eligibility.submit');
         Route::get('/{id}/eligibility-results', [reservationsController::class, 'showEligibilityResults'])->name('admin.bookings.eligibility.results');
+        Route::get('/{id}/print-report', [reservationsController::class, 'printEligibilityReport'])->name('admin.bookings.eligibility.print');
 
         // Individual Analysis Status Update
         Route::put('/analysis/{id}/status', [reservationsController::class, 'updateAnalysisStatus'])->name('admin.bookings.analysis.status.update');
@@ -80,6 +81,15 @@ Route::middleware('auth:administrator')->group(function () {
         Route::put('/{id}', [analysesController::class, 'updateAnalysis'])->name('analyses.update');
         Route::delete('/{id}', [analysesController::class, 'destroyAnalysis'])->name('analyses.destroy');
         Route::put('/{id}/toggle-availability', [analysesController::class, 'toggleAvailability'])->name('analyses.toggle-availability');
+    });
+
+    // Eligibility Management
+    Route::prefix('dashboard/eligibility')->group(function () {
+        Route::get('/{analysis_id}', [\App\Http\Controllers\EligibilityController::class, 'manage'])->name('eligibility.manage');
+        Route::post('/{analysis_id}/questions', [\App\Http\Controllers\EligibilityController::class, 'storeQuestion'])->name('eligibility.questions.store');
+        Route::delete('/questions/{id}', [\App\Http\Controllers\EligibilityController::class, 'destroyQuestion'])->name('eligibility.questions.destroy');
+        Route::post('/questions/{question_id}/options', [\App\Http\Controllers\EligibilityController::class, 'storeOption'])->name('eligibility.options.store');
+        Route::delete('/options/{id}', [\App\Http\Controllers\EligibilityController::class, 'destroyOption'])->name('eligibility.options.destroy');
     });
 
     // Messages

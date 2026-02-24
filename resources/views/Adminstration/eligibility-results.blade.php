@@ -14,16 +14,21 @@
             </nav>
             <h2 class="fw-bold"><i class="fas fa-notes-medical text-primary me-2"></i> {{ __('messages.medical_eligibility_report') }}</h2>
         </div>
-        <a href="{{ route('reservations') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-right me-2"></i> {{ __('messages.return_to_list') }}
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{{ route('admin.bookings.eligibility.print', $reservation->id) }}" target="_blank" class="btn btn-primary">
+                <i class="fas fa-print me-2"></i> {{ __('messages.print_report') }}
+            </a>
+            <a href="{{ route('reservations') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-right me-2"></i> {{ __('messages.return_to_list') }}
+            </a>
+        </div>
     </div>
 
     <!-- Patient Header -->
     <div class="card shadow-sm border-0 mb-4 bg-primary text-white overflow-hidden">
         <div class="card-body p-4 position-relative">
             <div class="row align-items-center">
-                <div class="col-md-8">
+                <div class="col-md-5">
                     <h3 class="mb-1 fw-bold">{{ $reservation->patient->name }}</h3>
                     <div class="d-flex gap-4 opacity-75 small">
                         <span><i class="fas fa-phone-alt me-1"></i> {{ $reservation->patient->phone }}</span>
@@ -31,6 +36,14 @@
                         <span><i class="fas fa-calendar-alt me-1"></i> {{ $reservation->analysis_date }} ({{ $reservation->time }})</span>
                     </div>
                 </div>
+                @if($barcode)
+                    <div class="col-md-3 text-center">
+                        <div class="barcode-tracker bg-white p-2 rounded shadow-sm text-center">
+                            <img src="{{ $barcode }}" width="90" alt="Visit QR" style="display: block; margin-bottom: 3px; margin-left: auto; margin-right: auto;">
+                            <div class="small fw-bold text-uppercase text-primary" style="font-size: 8px; letter-spacing: 0.5px;">Scanner Ready</div>
+                        </div>
+                    </div>
+                @endif
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <span class="badge bg-white text-primary px-3 py-2 fs-6">
                         #{{ $reservation->id }} {{ __('messages.visit_number') }}
@@ -95,7 +108,7 @@
                                     <tr>
                                         <td class="ps-4 py-3">
                                             <div class="fw-bold text-dark">{{ $question->question }}</div>
-                                            <small class="text-muted">{{ $question->analyse_id ? '(' . __('messages.analysis') . ': ' . \App\Models\Analyse::find($question->analyse_id)->name . ')' : '' }}</small>
+                                            <small class="text-muted">{{ $question->analyse_id ? '(' . __('messages.analysis') . ': ' . $question->analyse?->name . ')' : '' }}</small>
                                         </td>
                                         <td class="py-3">
                                             @foreach($answers as $ans)

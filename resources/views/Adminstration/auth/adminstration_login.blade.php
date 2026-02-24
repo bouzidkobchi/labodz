@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تسجيل الدخول - مخبر المنيعة</title>
+    <title>تسجيل الدخول - labo.dz</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{asset('css/auth/login.css')}}">
    
@@ -12,7 +12,7 @@
     <div class="login-container">
         <!-- Laboratory Information -->
         <div class="lab-info">
-            <h3><i class="fas fa-microscope"></i> مخبر المنيعة</h3>
+            <h3><i class="fas fa-microscope"></i> labo.dz</h3>
             <p>نظام إدارة المختبر الطبي</p>
         </div>
 
@@ -99,7 +99,7 @@
         <!-- Footer -->
         <div class="login-footer">
             <p><i class="fas fa-shield-alt"></i> نظام آمن ومحمي</p>
-            <p>© 2024 مخبر المنيعة. جميع الحقوق محفوظة.</p>
+            <p>© 2024 labo.dz. جميع الحقوق محفوظة.</p>
         </div>
     </div>
 

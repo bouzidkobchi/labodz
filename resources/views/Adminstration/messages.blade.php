@@ -51,8 +51,8 @@
                          onclick="markAsRead({{ $message->id }})">
                         <div class="message-header">
                             <div class="message-sender">
-                                <strong>{{ $message->patient_name }}</strong>
-                                <span class="message-email">{{ $message->patient_email }}</span>
+                                <strong>{{ $message->name }}</strong>
+                                <span class="message-email">{{ $message->email }}</span>
                             </div>
                             <div class="message-actions">
                                 <span class="message-time">{{ $message->created_at->diffForHumans() }}</span>

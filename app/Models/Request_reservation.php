@@ -23,6 +23,7 @@ class Request_reservation extends Model
         'patient_id',
         'history_id',
         'reservation_id',
+        'prescription_path',
     ];
 
     protected $casts = [

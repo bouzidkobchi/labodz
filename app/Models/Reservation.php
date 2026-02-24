@@ -15,7 +15,8 @@ class Reservation extends Model
         'time',
         'status',
         'result_notes',
-        'result_file_path'
+        'result_file_path',
+        'prescription_path',
     ];
 
     public function patient()

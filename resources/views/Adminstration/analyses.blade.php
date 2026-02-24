@@ -94,6 +94,9 @@
                     </td>
                     <td>
                         <div class="action-buttons">
+                            <a href="{{ route('eligibility.manage', $analysis->id) }}" class="btn btn-info" title="{{ __('messages.manage_eligibility') }}">
+                                <i class="fas fa-clipboard-check"></i>
+                            </a>
                             <a href="{{ route('analyses.edit', $analysis->id) }}" class="btn btn-edit">
                                 <i class="fas fa-edit"></i>
                             </a>

@@ -88,7 +88,7 @@ class SendAppointmentReminders extends Command
                         'appointment_time' => $appointment->time,
                     ], function ($message) use ($appointment) {
                         $message->to($appointment->patient->email)
-                                ->subject('تذكير بموعد التحاليل الطبية - مخبر المنيعة');
+                                ->subject('تذكير بموعد التحاليل الطبية - labo.dz');
                     });
 
                     // Update reminder as sent

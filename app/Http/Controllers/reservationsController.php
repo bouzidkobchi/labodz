@@ -49,6 +49,14 @@ class reservationsController extends Controller
             ->orderByDesc('time')
             ->paginate(10);
 
+        // Add Professional QR Codes to the collection (Null-safe)
+        foreach ($bookings as $booking) {
+            $patientName = $booking->patient->name ?? $booking->name ?? 'Patient';
+            $patientPhone = $booking->patient->phone ?? $booking->phone ?? 'N/A';
+            $qrData = "VIST-" . $booking->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
+            $booking->barcode = \App\Helpers\BarcodeHelper::getQRUrl($qrData, '150x150');
+        }
+
         return view('Adminstration.reservations', [
             'bookings' => $bookings,
         ]);
@@ -149,6 +157,7 @@ class reservationsController extends Controller
                 'analysis_date' => $request->analysis_date,
                 'time' => $request->time,
                 'status' => 'booked',
+                'prescription_path' => $reservationRequest->prescription_path,
             ]);
 
             // Determine which analyses to add (pivot vs single column)
@@ -262,10 +271,17 @@ class reservationsController extends Controller
 
         $questions = Question::where('analyse_id', $resAnalysis->analysis_id)->with('options')->get();
 
-        return view('Adminstration.eligibility-check', [
-            'booking' => $resAnalysis,
-            'questions' => $questions,
-        ]);
+    // Generate Professional QR Code (Base64 for reliability, Null-safe)
+    $patientName = $resAnalysis->reservation->patient->name ?? $resAnalysis->reservation->name ?? 'Patient';
+    $patientPhone = $resAnalysis->reservation->patient->phone ?? $resAnalysis->reservation->phone ?? 'N/A';
+    $qrData = "VIST-" . $resAnalysis->reservation->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
+    $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+
+    return view('Adminstration.eligibility-check', [
+        'booking' => $resAnalysis,
+        'questions' => $questions,
+        'barcode' => $barcode
+    ]);
     }
 
     /**
@@ -305,9 +321,16 @@ class reservationsController extends Controller
     {
         $reservation = Reservation::with(['patient', 'reservationAnalyses.analyse.questions.options'])->findOrFail($id);
 
+        // Generate Professional QR Code (Base64 for reliability, Null-safe)
+        $patientName = $reservation->patient->name ?? $reservation->name ?? 'Patient';
+        $patientPhone = $reservation->patient->phone ?? $reservation->phone ?? 'N/A';
+        $qrData = "VIST-" . $reservation->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
+        $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+
         return view('Adminstration.eligibility-check', [
             'reservation' => $reservation,
             'patient' => $reservation->patient,
+            'barcode' => $barcode,
         ]);
     }
 
@@ -316,6 +339,7 @@ class reservationsController extends Controller
      */
     public function submitFullEligibilityCheck(Request $request, AnalysisEligibilityService $eligibilityService, $id)
     {
+        \Log::info("Starting full eligibility check for reservation: $id");
         $reservation = Reservation::with('reservationAnalyses.analyse')->findOrFail($id);
 
         $request->validate([
@@ -377,24 +401,37 @@ class reservationsController extends Controller
 
         $results = [];
         foreach ($reservation->reservationAnalyses as $resAnalysis) {
-            $checkResult = $eligibilityService->checkEligibility($reservation->patient_id, $resAnalysis->analysis_id);
+            try {
+                $checkResult = $eligibilityService->checkEligibility($reservation->patient_id, $resAnalysis->analysis_id);
 
-            $jsonStatus = $statusMap[$checkResult['status']] ?? 'READY';
-            $viewStatus = $viewStatusMap[$jsonStatus];
+                $jsonStatus = $statusMap[$checkResult['status']] ?? 'READY';
+                $viewStatus = $viewStatusMap[$jsonStatus] ?? 'ready';
 
-            // Update database status
-            $resAnalysis->update(['status' => $viewStatus]);
+                // Update database status
+                $resAnalysis->update(['status' => $viewStatus]);
 
-            $results[] = [
-                'analysis_id' => $resAnalysis->id,
-                'name' => $resAnalysis->analyse->name,
-                'status' => $viewStatus, // for frontend UI
-                'fasting_valid' => ($jsonStatus !== 'INVALID'),
-                'eligibility_status' => $jsonStatus, // for user requested JSON
-                'notes' => $checkResult['notes'] ?? [],
-                'action' => $checkResult['status'],
-            ];
+                $results[] = [
+                    'analysis_id' => $resAnalysis->id,
+                    'name' => $resAnalysis->analyse ? $resAnalysis->analyse->name : "Analysis #{$resAnalysis->analysis_id}",
+                    'status' => $viewStatus, // for frontend UI
+                    'fasting_valid' => ($jsonStatus !== 'INVALID'),
+                    'eligibility_status' => $jsonStatus, // for user requested JSON
+                    'notes' => $checkResult['notes'] ?? [],
+                    'action' => $checkResult['status'],
+                ];
+            } catch (\Exception $e) {
+                \Log::error("Error checking eligibility for analysis {$resAnalysis->analysis_id}: " . $e->getMessage());
+                $results[] = [
+                    'analysis_id' => $resAnalysis->id,
+                    'name' => $resAnalysis->analyse ? $resAnalysis->analyse->name : "Analysis #{$resAnalysis->analysis_id}",
+                    'status' => 'ready',
+                    'notes' => ["خطأ داخلي أثناء التقييم: " . $e->getMessage()],
+                    'action' => 'eligible',
+                ];
+            }
         }
+
+        \Log::info("Eligibility check completed for reservation: $id. Found " . count($results) . " results.");
 
         if (request()->ajax() || request()->wantsJson()) {
             return response()->json([
@@ -461,6 +498,48 @@ class reservationsController extends Controller
             ->get()
             ->groupBy('question_id');
 
-        return view('Adminstration.eligibility-results', compact('reservation', 'results', 'patientAnswers'));
+    // Generate Professional QR Code (Base64 for reliability, Null-safe)
+    $patientName = $reservation->patient->name ?? $reservation->name ?? 'Patient';
+    $patientPhone = $reservation->patient->phone ?? $reservation->phone ?? 'N/A';
+    $qrData = "VIST-" . $reservation->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
+    $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+
+    return view('Adminstration.eligibility-results', compact('reservation', 'results', 'patientAnswers', 'barcode'));
+    }
+
+    /**
+     * Show a printable diagnostic report for a reservation.
+     */
+    public function printEligibilityReport(AnalysisEligibilityService $eligibilityService, $id)
+    {
+        $reservation = Reservation::with(['patient', 'reservationAnalyses.analyse'])->findOrFail($id);
+
+        $results = [];
+        foreach ($reservation->reservationAnalyses as $resAnalysis) {
+            $checkResult = $eligibilityService->checkEligibility($reservation->patient_id, $resAnalysis->analysis_id);
+            $results[] = [
+                'name' => $resAnalysis->analyse->name,
+                'status' => $checkResult['status'],
+                'notes' => $checkResult['notes'] ?? []
+            ];
+        }
+
+        $analyseIds = $reservation->reservationAnalyses->pluck('analysis_id');
+        
+        $patientAnswers = PatientAnswer::with(['question', 'option'])
+            ->where('patient_id', $reservation->patient_id)
+            ->whereHas('question', function($query) use ($analyseIds) {
+                $query->whereIn('analyse_id', $analyseIds);
+            })
+            ->get()
+            ->groupBy('question_id');
+
+    // Generate Professional QR Code (Base64 for reliability, Null-safe)
+    $patientName = $reservation->patient->name ?? $reservation->name ?? 'Patient';
+    $patientPhone = $reservation->patient->phone ?? $reservation->phone ?? 'N/A';
+    $qrData = "VIST-" . $reservation->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
+    $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+
+    return view('Adminstration.eligibility-report', compact('reservation', 'results', 'patientAnswers', 'barcode'));
     }
 }

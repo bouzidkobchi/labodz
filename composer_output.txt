@@ -1,0 +1,49 @@
+﻿C:\xampp\php\php.exe : 
+Installing dependencies 
+from lock file (including 
+require-dev)
+At line:1 char:21
++ ... h "vendor"; 
+C:\xampp\php\php.exe 
+composer.phar install 
+--no-interacti ...
++                 ~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (I  
+  nstalling depe...ng r   
+ equire-dev):String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+Verifying lock file 
+contents can be installed 
+on current platform.
+Nothing to install, 
+update or remove
+Generating optimized 
+autoload files
+> Illuminate\Foundation\Co
+mposerScripts::postAutoloa
+dDump
+> @php artisan 
+package:discover --ansi
+
+  [37;44m INFO [39;49m Discovering packages.  
+
+  barryvdh/laravel-dompdf  [32;1mDONE[39;22m
+  laravel/sail [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+  laravel/sanctum [90m.[39m[90m.[39m [32;1mDONE[39;22m
+  laravel/tinker [90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+  nesbot/carbon [90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+  nunomaduro/collision  [32;1mDONE[39;22m
+  nunomaduro/termwind  [32;1mDONE[39;22m
+  spatie/laravel-ignition  [32;1mDONE[39;22m
+
+85 packages you are using 
+are looking for funding.
+Use the `composer fund` 
+command to find out more!

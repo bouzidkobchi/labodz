@@ -29,10 +29,15 @@
 <body>
     @auth('administrator')
     <header class="admin-header">
-        <h1>
-            <i class="fas fa-tachometer-alt"></i>
-            {{ __('messages.admin_panel') }}
-        </h1>
+        <div class="header-left">
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1>
+                <i class="fas fa-tachometer-alt"></i>
+                {{ __('messages.admin_panel') }}
+            </h1>
+        </div>
         <div class="admin-actions d-flex align-items-center gap-3">
             <div class="lang-switcher">
                 @if(app()->getLocale() == 'ar')
@@ -66,7 +71,7 @@
                 <li><a href="{{ route('reservations') }}" class="{{ request()->routeIs('reservations') ? 'active' : '' }}">
                         <i class="fas fa-calendar-check"></i> {{ __('messages.manage_reservations') }}
                     </a></li>
-                <li><a href="{{ route('analyses') }}" class="{{ request()->routeIs('analyses') ? 'active' : '' }}">
+                <li><a href="{{ route('analyses') }}" class="{{ request()->routeIs('analyses') || request()->routeIs('eligibility*') ? 'active' : '' }}">
                         <i class="fas fa-flask"></i> {{ __('messages.manage_analyses') }}
                     </a></li>
                 <li><a href="{{ route('messages') }}" class="{{ request()->routeIs('messages') ? 'active' : '' }}">
@@ -99,8 +104,48 @@
     </div>
     @endif
 
+    @if($errors->any())
+    <div class="notification error show">
+        <ul class="mb-0">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
+
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ asset('js/dashboard/base.js') }}" type="module"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const adminSidebar = document.querySelector('.admin-sidebar');
+            const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+            
+            if (sidebarToggle && adminSidebar && sidebarBackdrop) {
+                const toggleSidebar = () => {
+                    adminSidebar.classList.toggle('active');
+                    sidebarBackdrop.classList.toggle('active');
+                };
+
+                sidebarToggle.addEventListener('click', toggleSidebar);
+                sidebarBackdrop.addEventListener('click', toggleSidebar);
+
+                // Close sidebar when clicking a link on mobile
+                adminSidebar.querySelectorAll('a').forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (window.innerWidth <= 768) {
+                            adminSidebar.classList.remove('active');
+                            sidebarBackdrop.classList.remove('active');
+                        }
+                    });
+                });
+            }
+        });
+    </script>
 
     <!-- Page Specific JS -->
     @if(request()->routeIs('dashboard'))

@@ -4,290 +4,297 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Confirmation de Rendez-vous - Labo El Meniaa</title>
+    <title>Confirmation de Rendez-vous - labo.dz</title>
     <style>
         @page {
-            margin: 1.5cm;
+            margin: 0;
         }
 
         body {
             font-family: 'Helvetica', 'Arial', sans-serif;
             margin: 0;
             padding: 0;
-            font-size: 11pt;
-            color: #333;
-            line-height: 1.5;
+            color: #2d3748;
+            line-height: 1.4;
+            background-color: #f7fafc;
+        }
+
+        .page-container {
+            padding: 40px;
+            background-color: white;
+            min-height: 297mm;
         }
 
         .header {
+            background-color: #2c5282;
+            color: white;
+            padding: 30px;
             text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #2c3e50;
+            border-bottom: 5px solid #ecc94b;
+            margin: -40px -40px 30px -40px;
         }
 
         .header h1 {
-            color: #2c3e50;
-            font-size: 24pt;
-            margin: 0 0 5px 0;
-            text-transform: uppercase;
+            margin: 0;
+            font-size: 26pt;
             letter-spacing: 2px;
+            text-transform: uppercase;
         }
 
         .header p {
-            color: #7f8c8d;
+            margin: 5px 0 0 0;
             font-size: 11pt;
-            margin: 5px 0;
+            opacity: 0.9;
         }
 
-        .doc-title {
-            background-color: #3498db;
-            color: white;
-            padding: 12px;
-            text-align: center;
-            font-size: 16pt;
+        .doc-badge {
+            display: inline-block;
+            background-color: #ecc94b;
+            color: #2d3748;
+            padding: 8px 25px;
+            border-radius: 50px;
             font-weight: bold;
-            margin: 20px 0;
-            border-radius: 4px;
-            text-transform: uppercase;
+            font-size: 14pt;
+            margin-top: -20px;
+            text-align: center;
+            width: 80%;
+            margin-left: 10%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .section {
-            margin-bottom: 25px;
+            margin-bottom: 30px;
         }
 
         .section-title {
-            color: #2c3e50;
-            font-size: 13pt;
+            color: #2c5282;
+            font-size: 14pt;
             font-weight: bold;
             margin-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
             padding-bottom: 5px;
-            border-bottom: 1px solid #3498db;
+            text-transform: uppercase;
+        }
+
+        .info-card {
+            background-color: #edf2f7;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
         }
 
         .info-table {
             width: 100%;
-            margin-bottom: 10px;
         }
 
         .info-table td {
-            padding: 8px 0;
-            vertical-align: top;
+            padding: 6px 0;
         }
 
         .label {
             font-weight: bold;
-            color: #2c3e50;
-            width: 200px;
+            color: #4a5568;
+            width: 180px;
+            font-size: 10pt;
         }
 
         .value {
-            color: #333;
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 11pt;
         }
 
-        table.analysis-table {
+        .analysis-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
         }
 
-        table.analysis-table th {
-            background-color: #f8f9fa;
-            color: #2c3e50;
-            padding: 12px;
+        .analysis-table th {
             text-align: left;
-            border-bottom: 2px solid #3498db;
+            background-color: #2c5282;
+            color: white;
+            padding: 12px;
             font-size: 10pt;
+        }
+
+        .analysis-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .total-row td {
+            font-weight: bold;
+            font-size: 14pt;
+            color: #2c5282;
+            padding-top: 20px;
+            text-align: right;
+        }
+
+        /* EYE-CATCHING PREPARATION BOX */
+        .prep-box {
+            background-color: #fffaf0;
+            border: 2px solid #ecc94b;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+            position: relative;
+        }
+
+        .prep-header {
+            color: #b7791f;
+            font-weight: bold;
+            font-size: 16pt;
+            margin-bottom: 15px;
+            text-align: center;
             text-transform: uppercase;
         }
 
-        table.analysis-table td {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-            font-size: 10pt;
-        }
-
-        .price-col {
-            text-align: right;
-            font-weight: bold;
-        }
-
-        .total-container {
-            margin-top: 20px;
-            text-align: right;
-        }
-
-        .total-box {
-            display: inline-block;
-            background-color: #2c3e50;
-            color: white;
-            padding: 15px 25px;
-            border-radius: 4px;
-        }
-
-        .total-label {
-            font-size: 12pt;
-            margin-right: 15px;
-        }
-
-        .total-amount {
-            font-size: 16pt;
-            font-weight: bold;
-        }
-
-        .instructions-box {
-            background-color: #fffde7;
-            border: 1px solid #fff59d;
+        .prep-item {
+            background-color: white;
             padding: 15px;
-            margin-top: 10px;
-            border-radius: 4px;
-        }
-
-        .instructions-title {
-            color: #f9a825;
-            font-weight: bold;
+            border-radius: 8px;
             margin-bottom: 10px;
-            font-size: 11pt;
+            border-left: 5px solid #ecc94b;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
 
-        .important-notes {
-            margin-top: 30px;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            font-size: 10pt;
+        .prep-item strong {
+            display: block;
+            color: #2c5282;
+            margin-bottom: 5px;
+            font-size: 12pt;
         }
 
-        .important-notes h3 {
-            margin-top: 0;
+        .prep-text {
+            color: #4a5568;
             font-size: 11pt;
-            color: #2c3e50;
+            line-height: 1.6;
         }
 
         .footer {
-            margin-top: 50px;
+            margin-top: 40px;
             text-align: center;
             font-size: 9pt;
-            color: #95a5a6;
-            border-top: 1px solid #eee;
+            color: #718096;
+            border-top: 1px solid #e2e8f0;
             padding-top: 20px;
         }
 
         .footer p {
-            margin: 3px 0;
+            margin: 2px 0;
         }
     </style>
 </head>
+</head>
 
 <body>
-    <div class="header">
-        <h1>LABORATOIRE EL MENIAA</h1>
-        <p>Expertise en Analyses Médicales & Diagnostics</p>
-        <p>Cité de l'Indépendance, El Meniaa, Algérie</p>
-    </div>
-
-    <div class="doc-title">
-        CONFIRMATION DE RENDEZ-VOUS
-    </div>
-
-    <div class="section">
-        <div class="section-title">INFORMATIONS DU PATIENT</div>
-        <table class="info-table">
-            <tr>
-                <td class="label">Nom Complet :</td>
-                <td class="value">{{ $reservation->name }}</td>
-            </tr>
-            <tr>
-                <td class="label">Téléphone :</td>
-                <td class="value">{{ $reservation->phone }}</td>
-            </tr>
-            @if($reservation->email)
-            <tr>
-                <td class="label">E-mail :</td>
-                <td class="value">{{ $reservation->email }}</td>
-            </tr>
+    <div class="page-container">
+        <div class="header">
+            @if($barcode)
+                <div style="float: right; text-align: center;">
+                    <img src="{{ $barcode }}" width="120" alt="QR Code" style="display: block; margin-bottom: 5px;">
+                    <span style="font-size: 10px; color: #666; font-weight: bold; text-transform: uppercase;">Medical Visit QR</span>
+                </div>
             @endif
-            <tr>
-                <td class="label">Sexe :</td>
-                <td class="value">{{ $reservation->gender == 'male' ? 'Masculin' : 'Féminin' }}</td>
-            </tr>
-            <tr>
-                <td class="label">Date de Naissance :</td>
-                <td class="value">{{ \Carbon\Carbon::parse($reservation->birth_date)->format('d/m/Y') }}</td>
-            </tr>
-            <tr>
-                <td class="label">Date du Rendez-vous :</td>
-                <td class="value">{{ \Carbon\Carbon::parse($reservation->date)->format('d/m/Y') }} à {{ $reservation->time }}</td>
-            </tr>
-        </table>
-    </div>
+            <h1 style="text-align: left;">labo.dz</h1>
+            <p style="text-align: left;">Expertise en Analyses Médicales & Diagnostics</p>
+            <p style="text-align: left;">Tel: 0550 12 34 56 | E-mail: info@labo-dz.com</p>
+        </div>
 
-    <div class="section">
-        <div class="section-title">ANALYSES DEMANDÉES</div>
-        <table class="analysis-table">
-            <thead>
-                <tr>
-                    <th style="width: 50%">Désignation de l'Analyse</th>
-                    <th style="width: 25%">Délai de Résultat</th>
-                    <th style="width: 25%; text-align: right;">Prix Unitaire</th>
-                </tr>
-            </thead>
-            <tbody>
-                @php $total = 0; @endphp
-                @foreach($reservation->analyses as $analysis)
-                <tr>
-                    <td><strong>{{ $analysis->name_fr }}</strong></td>
-                    <td>{{ str_replace(['ساعة', 'ساعات', 'يوم', 'أيام'], ['heure(s)', 'heure(s)', 'jour(s)', 'jour(s)'], $analysis->duration) }}</td>
-                    <td class="price-col">{{ number_format($analysis->price, 2) }} DA</td>
-                </tr>
-                @php $total += $analysis->price; @endphp
-                @endforeach
-            </tbody>
-        </table>
+        <div class="doc-badge">
+            CONFIRMATION DE RENDEZ-VOUS
+        </div>
 
-        <div class="total-container">
-            <div class="total-box">
-                <span class="total-label">MONTANT TOTAL :</span>
-                <span class="total-amount">{{ number_format($total, 2) }} DA</span>
+        <div class="section" style="margin-top: 40px;">
+            <div class="section-title">Informations du Patient</div>
+            <div class="info-card">
+                <table class="info-table">
+                    <tr>
+                        <td class="label">Nom Complet:</td>
+                        <td class="value">{{ $reservation->name }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Date du RDV:</td>
+                        <td class="value">{{ \Carbon\Carbon::parse($reservation->date)->format('d/m/Y') }} à {{ $reservation->time }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Sexe:</td>
+                        <td class="value">{{ $reservation->gender == 'male' ? 'Masculin' : 'Féminin' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">N° de Dossier:</td>
+                        <td class="value">#{{ $reservation->id }}</td>
+                    </tr>
+                </table>
             </div>
         </div>
-    </div>
 
-    @php
-    $hasPreparation = $reservation->analyses->filter(function($analysis) {
-        return !empty($analysis->preparation_fr);
-    })->count() > 0;
-    @endphp
+        <div class="section">
+            <div class="section-title">Analyses Demandées</div>
+            <table class="analysis-table">
+                <thead>
+                    <tr>
+                        <th>Désignation de l'Analyse</th>
+                        <th style="text-align: right;">Prix</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @php $total = 0; @endphp
+                    @foreach($reservation->analyses as $analysis)
+                    <tr>
+                        <td><strong>{{ $analysis->name_fr }}</strong></td>
+                        <td style="text-align: right;">{{ number_format($analysis->price, 2) }} DA</td>
+                    </tr>
+                    @php $total += $analysis->price; @endphp
+                    @endforeach
+                    <tr class="total-row">
+                        <td style="border: none;">MONTANT TOTAL:</td>
+                        <td style="border: none;">{{ number_format($total, 2) }} DA</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
-    @if($hasPreparation)
-    <div class="section">
-        <div class="section-title">CONSIGNES DE PRÉPARATION</div>
-        <div class="instructions-box">
-            <div class="instructions-title">Important : Veuillez suivre ces instructions pour garantir la précision des résultats</div>
+        @php
+        $hasPreparation = $reservation->analyses->filter(function($analysis) {
+            return !empty($analysis->prep_fr);
+        })->count() > 0;
+        @endphp
+
+        @if($hasPreparation)
+        <div class="prep-box">
+            <div class="prep-header">
+                IMPORTANT : CONSIGNES DE PRÉPARATION
+            </div>
+            <p style="text-align: center; color: #744210; margin-bottom: 20px; font-weight: 500;">
+                Veuillez respecter ces consignes pour la précision de vos résultats
+            </p>
+
             @foreach($reservation->analyses as $analysis)
-            @if($analysis->preparation_fr)
-            <p style="margin: 8px 0;"><strong>- {{ $analysis->name_fr }} :</strong> {{ $analysis->preparation_fr }}</p>
+            @if($analysis->prep_fr)
+            <div class="prep-item">
+                <strong style="color: #2c5282;">&bull; {{ $analysis->name_fr }}</strong>
+                <div class="prep-text">
+                    {{ $analysis->prep_fr }}
+                </div>
+            </div>
             @endif
             @endforeach
         </div>
-    </div>
-    @endif
+        @endif
 
-    <div class="important-notes">
-        <h3>REMARQUES IMPORTANTES</h3>
-        <ul style="margin: 0; padding-left: 20px;">
-            <li>Ce document est une confirmation de demande de rendez-vous.</li>
-            <li>Veuillez vous présenter au laboratoire 15 minutes avant l'heure fixée.</li>
-            <li>En cas d'empêchement, merci de nous prévenir au moins 24 heures à l'avance.</li>
-            <li>N'oubliez pas d'apporter votre pièce d'identité et ce document.</li>
-        </ul>
-    </div>
+        <div class="important-notes" style="margin-top: 40px; border-top: 1px dashed #cbd5e0; padding-top: 20px;">
+            <p style="font-size: 10pt; color: #4a5568;">
+                &bull; Présentez-vous 15 minutes avant l'heure fixée<br>
+                &bull; Apportez votre pièce d'identité<br>
+                &bull; Munissez-vous de ce document
+            </p>
+        </div>
 
-    <div class="footer">
-        <p><strong>Adresse :</strong> Cité de l'Indépendance, El Meniaa | <strong>Tel :</strong> 0550 12 34 56</p>
-        <p><strong>E-mail :</strong> info@labo-elmeniaa.dz | <strong>Horaires :</strong> 08:00 - 18:00</p>
-        <p style="margin-top: 15px;">Document généré le {{ \Carbon\Carbon::now()->format('d/m/Y à H:i') }}</p>
+        <div class="footer">
+            <p>labo.dz - Excellence en Diagnostics Biologiques</p>
+            <p>Document généré automatiquement le {{ \Carbon\Carbon::now()->format('d/m/Y à H:i') }}</p>
+        </div>
     </div>
 </body>
-
 </html>

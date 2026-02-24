@@ -50,7 +50,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>مخبر المنيعة</h1>
+            <h1>labo.dz</h1>
             <h2>{{ $subject }}</h2>
         </div>
         
@@ -66,7 +66,7 @@
         </div>
         
         <div class="footer">
-            <p>مع تحيات،<br>فريق مخبر المنيعة</p>
+            <p>مع تحيات،<br>فريق labo.dz</p>
             <p>هذا البريد الإلكتروني مرسل تلقائياً، يرجى عدم الرد عليه</p>
         </div>
     </div>

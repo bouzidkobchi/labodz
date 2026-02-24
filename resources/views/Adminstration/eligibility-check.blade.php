@@ -3,9 +3,17 @@
 @section('title', __('messages.eligibility_check'))
 
 @section('content')
-<div class="section-header">
-    <h2><i class="fas fa-stethoscope"></i> {{ __('messages.medical_eligibility_assessment') }}</h2>
-    <p>{{ __('messages.patient') }}: <strong>{{ $patient->name }}</strong> | {{ __('messages.appointment') }}: <strong>{{ $reservation->analysis_date }} {{ $reservation->time }}</strong></p>
+<div class="section-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="fas fa-stethoscope"></i> {{ __('messages.medical_eligibility_assessment') }}</h2>
+        <p>{{ __('messages.patient') }}: <strong>{{ $patient->name }}</strong> | {{ __('messages.appointment') }}: <strong>{{ $reservation->analysis_date }} {{ $reservation->time }}</strong></p>
+    </div>
+    @if($barcode)
+        <div class="barcode-tracker bg-white p-2 rounded shadow-sm text-center">
+            <img src="{{ $barcode }}" width="90" alt="Visit QR" style="display: block; margin-bottom: 3px; margin-left: auto; margin-right: auto;">
+            <div class="small fw-bold text-uppercase text-primary" style="font-size: 8px; letter-spacing: 0.5px;">Scanner Ready</div>
+        </div>
+    @endif
 </div>
 
 <div class="card shadow-sm border-0">
@@ -62,7 +70,7 @@
                                                                    id="option_{{ $option->id }}" 
                                                                    value="{{ $option->id }}" 
                                                                    data-option-value="{{ $option->value }}"
-                                                                   required>
+                                                                   {{ $shouldShow ? 'required' : '' }}>
                                                         @endif
                                                         <label class="form-check-label px-2" for="option_{{ $option->id }}">
                                                             {{ $option->text }}
@@ -124,7 +132,10 @@
                 <div id="results-list" class="row g-4">
                     <!-- Results will be injected here -->
                 </div>
-                <div class="text-center mt-5">
+                <div class="text-center mt-5 d-flex justify-content-center gap-3">
+                    <a href="{{ route('admin.bookings.eligibility.print', $reservation->id) }}" target="_blank" class="btn btn-primary btn-lg px-5">
+                        <i class="fas fa-print me-2"></i> {{ __('messages.print_report') }}
+                    </a>
                     <a href="{{ route('reservations') }}" class="btn btn-success btn-lg px-5">
                         <i class="fas fa-tasks me-2"></i> {{ __('messages.return_to_manage') }}
                     </a>
@@ -249,6 +260,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h5 class="card-title mb-0">${result.name}</h5>
                                     <i class="fas ${iconClass} fa-2x"></i>
+                                </div>
+                                <div class="bg-white p-1 rounded shadow-sm d-inline-block text-center" style="transform: scale(0.85); transform-origin: left center;">
+                                    <img src="{{ $barcode }}" width="60" alt="Barcode" style="display: block; margin-bottom: 2px; margin-left: auto; margin-right: auto;">
+                                    <span class="fw-bold text-uppercase text-muted" style="font-size: 6px;">Visit QR</span>
                                 </div>
                                 <p class="card-text mb-1">
                                     <strong>الحالة:</strong> ${statusText}

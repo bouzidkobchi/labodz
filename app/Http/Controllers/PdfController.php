@@ -16,8 +16,8 @@ class PdfController extends Controller
      */
     public function generateReservationPdf($id)
     {
-        // Load reservation with related analyses
-        $reservation = Request_reservation::with('analyses')->findOrFail($id);
+        // Load reservation with related analyses and patient
+        $reservation = Request_reservation::with(['analyses', 'patient'])->findOrFail($id);
 
         // Analysis Name Translation Mapping
         $analysisTranslations = [
@@ -46,14 +46,28 @@ class PdfController extends Controller
             'لا يتطلب صيام. يمكن إجراء التحليل في أي وقت من اليوم.' => 'À jeun non requis. Peut être effectué à tout moment.'
         ];
 
-        // Apply translations to the collection
+        // Apply translations and preparation data
         foreach ($reservation->analyses as $analysis) {
             $analysis->name_fr = $analysisTranslations[$analysis->name] ?? $analysis->name;
-            $analysis->preparation_fr = $instructionTranslations[$analysis->preparation_instructions] ?? null;
+            
+            // Map Arabic to French for instructions
+            $analysis->prep_ar = $analysis->preparation_instructions;
+            $analysis->prep_fr = $instructionTranslations[$analysis->preparation_instructions] ?? null;
+        }
+
+        // Generate Professional QR Code with metadata (Null-safe)
+        $barcode = null;
+        if (extension_loaded('gd')) {
+            $patientName = $reservation->patient->name ?? $reservation->name ?? 'Patient';
+            $patientPhone = $reservation->patient->phone ?? $reservation->phone ?? 'N/A';
+            $qrData = "VIST-" . $reservation->id . " | Patient: " . $patientName . " | Phone: " . $patientPhone;
+            $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
+        } else {
+            \Log::warning('PHP GD extension missing. Skipping QR code in PDF.');
         }
 
         // Generate PDF
-        $pdf = Pdf::loadView('reservation-pdf', compact('reservation'));
+        $pdf = Pdf::loadView('reservation-pdf', compact('reservation', 'barcode'));
 
         // Set paper size and orientation
         $pdf->setPaper('A4', 'portrait');
@@ -61,7 +75,10 @@ class PdfController extends Controller
         // Generate filename
         $filename = 'reservation_' . str_replace(' ', '_', $reservation->name) . '_' . now()->format('YmdHis') . '.pdf';
 
-        // Return PDF download
+        // Clean any output buffer to prevent corruption
+        if (ob_get_length()) ob_end_clean();
+
+        // Return PDF download with explicit headers
         return $pdf->download($filename);
     }
 }
