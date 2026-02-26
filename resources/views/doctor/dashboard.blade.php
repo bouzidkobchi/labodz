@@ -269,13 +269,29 @@
                                     </span>
                                 </td>
                                 <td>
-                                    @if($res->result_file_path)
-                                        <a href="{{ route('patient.download', $res->id) }}" class="btn-view-result">
-                                            <i class="fas fa-file-pdf me-1"></i> {{ __('messages.view_result') }}
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {{-- 1. Eligibility Report (Always available for doctor's referrals) --}}
+                                        <a href="{{ route('reservation.pdf', ['id' => $res->id, 'type' => 'confirmed', 'report_type' => 'eligibility']) }}" class="btn-view-result" title="{{ __('messages.eligibility_report') }}">
+                                            <i class="fas fa-file-medical me-1"></i> {{ __('messages.eligibility_report') }}
                                         </a>
-                                    @else
-                                        <span class="text-muted small"><i class="fas fa-clock me-1"></i> {{ __('messages.waiting') }}</span>
-                                    @endif
+
+                                        {{-- 2. Medical Results (Check DB results or uploaded file) --}}
+                                        @php
+                                            $hasDbResults = $res->reservationAnalyses->contains(fn($ra) => !empty($ra->result_value));
+                                        @endphp
+
+                                        @if($res->result_file_path)
+                                            <a href="{{ route('doctor.download', $res->id) }}" class="btn-view-result" style="background: var(--doctor-secondary); color: white;">
+                                                <i class="fas fa-file-pdf me-1"></i> {{ __('messages.view_result') }}
+                                            </a>
+                                        @elseif($hasDbResults)
+                                            <a href="{{ route('reservation.pdf', ['id' => $res->id, 'type' => 'confirmed', 'report_type' => 'results']) }}" class="btn-view-result" style="background: #2f855a; color: white;">
+                                                <i class="fas fa-microscope me-1"></i> {{ __('messages.medical_report_pdf') }}
+                                            </a>
+                                        @else
+                                            <span class="text-muted small align-self-center py-1"><i class="fas fa-clock me-1"></i> {{ __('messages.waiting') }}</span>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty

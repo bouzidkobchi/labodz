@@ -202,6 +202,10 @@
                                     <li><a class="dropdown-item notify-btn" href="#" data-url="{{ route('admin.bookings.notify', $reservation->id) }}" data-target="both"><i class="fas fa-users me-2"></i> {{ __('messages.notify_both') ?? 'Both' }}</a></li>
                                 </ul>
                             </div>
+                            
+                            <a href="{{ route('admin.bookings.results.form', $reservation->id) }}" class="btn btn-sm btn-outline-success" title="إدخال نتائج التحاليل">
+                                <i class="fas fa-file-medical"></i> {{ __('messages.fill_results') ?? 'Results' }}
+                            </a>
                         </div>
                     </td>
                 </tr>

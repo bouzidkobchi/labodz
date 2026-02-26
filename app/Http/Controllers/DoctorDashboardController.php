@@ -45,4 +45,21 @@ class DoctorDashboardController extends Controller
 
         return view('doctor.patient-result', compact('reservation'));
     }
+
+    /**
+     * Download result file for doctor.
+     */
+    public function downloadResult($id)
+    {
+        $doctor = Auth::guard('doctor')->user();
+        
+        $reservation = Reservation::where('doctor_id', $doctor->id)
+            ->findOrFail($id);
+
+        if (!$reservation->result_file_path || !\Storage::disk('public')->exists($reservation->result_file_path)) {
+            return back()->with('error', __('messages.result_not_found'));
+        }
+
+        return \Storage::disk('public')->download($reservation->result_file_path);
+    }
 }

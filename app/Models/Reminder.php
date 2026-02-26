@@ -14,6 +14,7 @@ class Reminder extends Model
         'patient_id',
         'analyse_id',
         'reservation_id',
+        'message',
         'scheduled_for',
         'sent_at',
         'is_sent',

@@ -24,6 +24,10 @@ class Analyse extends Model
         'preparation_instructions',
         'image',
         'availability',
+        'unit',
+        'min_critical',
+        'max_critical',
+        'critical_instructions',
     ];
 
     protected $casts = [

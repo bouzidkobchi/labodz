@@ -144,6 +144,14 @@
                     <div class="info-label">{{ __('messages.gender') }}</div>
                     <div class="info-value">{{ __('messages.' . $reservation->patient->gender) }}</div>
                 </div>
+                <div>
+                    <div class="info-label">{{ __('messages.birth_date') ?? 'Date de Naissance' }}</div>
+                    <div class="info-value">{{ $reservation->patient->birth_date }}</div>
+                </div>
+                <div>
+                    <div class="info-label">{{ __('messages.phone_number') }}</div>
+                    <div class="info-value">{{ $reservation->patient->phone }}</div>
+                </div>
                 @if($reservation->doctor)
                 <div>
                     <div class="info-label">{{ __('messages.referred_by') }}</div>
@@ -167,11 +175,25 @@
                 </div>
             </div>
 
-            <div class="p-5 bg-light border-top d-flex justify-content-center">
+            <div class="p-5 bg-light border-top d-flex flex-wrap justify-content-center gap-3">
+                @php
+                    $hasDbResults = $reservation->reservationAnalyses->contains(fn($ra) => !empty($ra->result_value));
+                @endphp
+
+                {{-- Eligibility Report (Available once diagnostic check is done) --}}
+                <a href="{{ route('reservation.pdf', ['id' => $reservation->id, 'type' => 'confirmed', 'report_type' => 'eligibility']) }}" target="_blank" class="btn btn-outline-primary shadow-sm rounded-3 py-2 px-4 fw-bold">
+                    <i class="fas fa-file-medical me-2"></i> {{ __('messages.eligibility_report') }}
+                </a>
+
+                {{-- Medical Results (Uploaded File or DB Results) --}}
                 @if($reservation->result_file_path)
-                    <a href="{{ route('patient.download', $reservation->id) }}" class="btn-download-result">
+                    <a href="{{ route('doctor.download', $reservation->id) }}" class="btn-download-result shadow-sm">
                         <i class="fas fa-file-pdf"></i>
                         {{ __('messages.download_official_result_pdf') }}
+                    </a>
+                @elseif($hasDbResults)
+                    <a href="{{ route('reservation.pdf', ['id' => $reservation->id, 'type' => 'confirmed', 'report_type' => 'results']) }}" target="_blank" class="btn-download-result shadow-sm" style="background: #2f855a;">
+                        <i class="fas fa-microscope me-2"></i> {{ __('messages.medical_report_pdf') }}
                     </a>
                 @else
                     <div class="text-center text-muted">

@@ -5,12 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+use App\Traits\Auditable;
+
 class Reservation extends Model
 {
-    use HasFactory;
+    use HasFactory, Auditable;
 
     protected $fillable = [
         'patient_id',
+        'doctor_id',
         'analysis_date',
         'time',
         'status',
@@ -36,7 +39,8 @@ class Reservation extends Model
 
     public function analyses()
     {
-        return $this->belongsToMany(Analyse::class, 'reservation_analyses');
+        return $this->belongsToMany(Analyse::class, 'reservation_analyses', 'reservation_id', 'analysis_id')
+            ->withPivot(['result_value', 'unit', 'reference_range', 'status']);
     }
 
     public function reminders()

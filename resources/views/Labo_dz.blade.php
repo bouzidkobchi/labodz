@@ -297,6 +297,7 @@
                 <li><a href="#analysis"><i class="fas fa-flask"></i> {{ __('messages.analysis') }}</a></li>
                 <li><a href="#tips"><i class="fas fa-lightbulb"></i> {{ __('messages.tips') }}</a></li>
                 <li><a href="#booking"><i class="fas fa-calendar-check"></i> {{ __('messages.booking') }}</a></li>
+                <li><a href="{{ route('access') }}" class="portal-nav-link text-warning fw-bold"><i class="fas fa-lock"></i> {{ __('messages.patient_portal') }}</a></li>
                 <li><a href="#contact"><i class="fas fa-envelope"></i> {{ __('messages.contact') }}</a></li>
             </ul>
         </div>
@@ -630,6 +631,7 @@
                 <a href="#features">{{ __('messages.features') }}</a>
                 <a href="#analysis">{{ __('messages.analysis') }}</a>
                 <a href="#booking">{{ __('messages.booking') }}</a>
+                <a href="{{ route('access') }}">{{ __('messages.patient_portal') }} / {{ __('messages.physician_portal') }}</a>
                 <a href="#contact">{{ __('messages.contact') }}</a>
             </div>
             <div class="footer-section">
@@ -651,7 +653,7 @@
             // 1. Auto-download PDF if session exists
             @if(session('download_pdf'))
                 var reservationId = {{ session('download_pdf') }};
-                var downloadUrl = '{{ url("/reservation") }}/' + reservationId + '/pdf';
+                var downloadUrl = '{{ url("/reservation") }}/' + reservationId + '/pdf/request';
                 
                 var link = document.createElement('a');
                 link.href = downloadUrl;
@@ -662,17 +664,53 @@
                 document.body.removeChild(link);
             @endif
 
-            // 2. Client-side validation for analysis selection
+            // 2. Client-side validation for booking form
             const bookingForm = document.getElementById('bookingForm');
             const prescriptionInput = document.getElementById('prescription');
+            const phoneInput = document.getElementById('phone');
+            const dateInput = document.getElementById('date');
+            const emailInput = document.getElementById('email');
+
             if (bookingForm) {
+                // Set min date to today
+                const today = new Date().toISOString().split('T')[0];
+                if (dateInput) dateInput.setAttribute('min', today);
+
                 bookingForm.addEventListener('submit', function(e) {
+                    let errorMessage = null;
+
+                    // Analysis/Prescription Validation
                     const checkboxes = this.querySelectorAll('input[name="analysisTypes[]"]:checked');
                     const hasFile = prescriptionInput && prescriptionInput.files.length > 0;
-                    
                     if (checkboxes.length === 0 && !hasFile) {
+                        errorMessage = '{{ __('messages.at_least_one_analysis_or_prescription') }}';
+                    }
+
+                    // Phone Validation (Algerian Format)
+                    const phoneRegex = /^(05|06|07)[0-9]{8}$/;
+                    if (!errorMessage && phoneInput && !phoneRegex.test(phoneInput.value)) {
+                        errorMessage = '{{ __('messages.invalid_phone_format') }}';
+                    }
+
+                    // Date Validation (Already helped by 'min' attribute, but for safety)
+                    if (!errorMessage && dateInput && dateInput.value < today) {
+                        errorMessage = '{{ __('messages.invalid_date_past') }}';
+                    }
+
+                    // Email Validation (Optional field, but must be valid if filled)
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!errorMessage && emailInput && emailInput.value.trim() !== '' && !emailRegex.test(emailInput.value)) {
+                        errorMessage = '{{ __('messages.invalid_email_format') }}';
+                    }
+
+                    if (errorMessage) {
                         e.preventDefault();
-                        showNotification('{{ __('messages.at_least_one_analysis_or_prescription') }}', 'error');
+                        showNotification(errorMessage, 'error');
+                        
+                        // Highlight the field with error if possible
+                        if (errorMessage.includes('الهاتف') || errorMessage.includes('téléphone')) phoneInput.focus();
+                        else if (errorMessage.includes('التاريخ') || errorMessage.includes('date')) dateInput.focus();
+                        else if (errorMessage.includes('البريد') || errorMessage.includes('e-mail')) emailInput.focus();
                     }
                 });
             }
