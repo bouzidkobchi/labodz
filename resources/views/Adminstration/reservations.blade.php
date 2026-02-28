@@ -146,6 +146,18 @@
                             @elseif($reservation->status == 'completed') {{ __('messages.completed') }}
                             @else {{ $reservation->status }} @endif
                         </span>
+                        
+                        <div class="mt-2 text-muted small">
+                            <i class="fas fa-user-md me-1"></i>
+                            <select class="referral-select ajax-referral-update" data-url="{{ route('admin.bookings.referral.update', $reservation->id) }}" style="border:none; background:transparent; font-size:11px; cursor:pointer;">
+                                <option value="">— {{ __('messages.referred_by') ?? 'Assign Physician' }} —</option>
+                                @foreach($doctors as $doc)
+                                    <option value="{{ $doc->id }}" {{ $reservation->doctor_id == $doc->id ? 'selected' : '' }}>
+                                        {{ $doc->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                     </td>
                     <td class="actions-cell">
                         <div class="action-group d-flex align-items-center gap-2">
@@ -178,6 +190,22 @@
                                     {{ __('messages.eligibility_results') }}
                                 </a>
                             @endif
+
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-bell"></i> {{ __('messages.notify') ?? 'Notify' }}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item notify-btn" href="#" data-url="{{ route('admin.bookings.notify', $reservation->id) }}" data-target="patient"><i class="fas fa-user me-2"></i> {{ __('messages.notify_patient') ?? 'Patient' }}</a></li>
+                                    <li><a class="dropdown-item notify-btn" href="#" data-url="{{ route('admin.bookings.notify', $reservation->id) }}" data-target="doctor"><i class="fas fa-user-md me-2"></i> {{ __('messages.notify_doctor') ?? 'Physician' }}</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item notify-btn" href="#" data-url="{{ route('admin.bookings.notify', $reservation->id) }}" data-target="both"><i class="fas fa-users me-2"></i> {{ __('messages.notify_both') ?? 'Both' }}</a></li>
+                                </ul>
+                            </div>
+                            
+                            <a href="{{ route('admin.bookings.results.form', $reservation->id) }}" class="btn btn-sm btn-outline-success" title="إدخال نتائج التحاليل">
+                                <i class="fas fa-file-medical"></i> {{ __('messages.fill_results') ?? 'Results' }}
+                            </a>
                         </div>
                     </td>
                 </tr>
@@ -249,6 +277,71 @@ document.addEventListener('DOMContentLoaded', function() {
                 select.disabled = false;
                 select.style.opacity = '1';
                 showToast('حدث خطأ في الاتصال بالخادم', 'danger');
+            });
+        });
+    });
+
+    // Referral Update Logic
+    const referralSelects = document.querySelectorAll('.ajax-referral-update');
+    referralSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            const doctorId = this.value;
+            const url = this.dataset.url;
+            
+            this.disabled = true;
+            
+            fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ doctor_id: doctorId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.disabled = false;
+                if (data.success) {
+                    showToast(data.message, 'success');
+                } else {
+                    showToast(data.message || 'Error', 'danger');
+                }
+            })
+            .catch(error => {
+                this.disabled = false;
+                showToast('Connection error', 'danger');
+            });
+        });
+    });
+
+    // Notification Logic
+    const notifyBtns = document.querySelectorAll('.notify-btn');
+    notifyBtns.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const url = this.dataset.url;
+            const target = this.dataset.target;
+            
+            btn.classList.add('disabled');
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ target: target })
+            })
+            .then(response => response.json())
+            .then(data => {
+                btn.classList.remove('disabled');
+                showToast(data.message, data.success ? 'success' : 'danger');
+            })
+            .catch(error => {
+                btn.classList.remove('disabled');
+                showToast('Error', 'danger');
             });
         });
     });

@@ -99,6 +99,7 @@ class reservationsController extends Controller
 
         return view('Adminstration.reservations', [
             'bookings' => $bookings,
+            'doctors' => \App\Models\Doctor::all(),
         ]);
     }
 
@@ -158,9 +159,11 @@ class reservationsController extends Controller
         }
 
         $request->validate([
-            'analysis_date' => 'required|date',
+            'analysis_date' => 'required|date|after_or_equal:today',
             'time' => 'required',
             'admin_notes' => 'nullable|string',
+        ], [
+            'analysis_date.after_or_equal' => __('messages.invalid_date_past'),
         ]);
 
         try {
@@ -907,5 +910,175 @@ class reservationsController extends Controller
         $barcode = \App\Helpers\BarcodeHelper::getQRBase64($qrData, '200x200');
 
         return view('Adminstration.eligibility-report', compact('reservation', 'results', 'patientAnswers', 'barcode'));
+    }
+
+    /**
+     * Link physician to reservation
+     */
+    public function updateReferral(Request $request, $id)
+    {
+        $request->validate([
+            'doctor_id' => 'nullable|exists:doctors,id',
+        ]);
+
+        $reservation = Reservation::findOrFail($id);
+        $reservation->update(['doctor_id' => $request->doctor_id]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم ربط الطبيب بنجاح',
+        ]);
+    }
+
+    /**
+     * Notify participants (Patient & Doctor) about results
+     */
+    public function notifyParticipants(Request $request, $id)
+    {
+        $reservation = Reservation::with(['patient', 'doctor', 'reservationAnalyses.analyse'])->findOrFail($id);
+        $target = $request->get('target', 'both'); // patient, doctor, both
+        
+        $notifications = [];
+        $errors = [];
+        $additionalNotes = $reservation->result_notes ?? '';
+
+        // 1. Notify Patient
+        if ($target == 'patient' || $target == 'both') {
+            if (!$reservation->patient || !$reservation->patient->email) {
+                $errors[] = __('messages.patient_no_email');
+            } else {
+                try {
+                    \Mail::send('emails.test-result', [
+                        'patient' => $reservation->patient,
+                        'reservation' => $reservation,
+                        'additional_notes' => $additionalNotes,
+                    ], function($message) use ($reservation) {
+                        $message->to($reservation->patient->email)
+                                ->subject(__('messages.results_ready_title') . ' - labo.dz');
+                    });
+
+                    // Create persistent reminder for the patient portal
+                    \App\Models\Reminder::create([
+                        'patient_id' => $reservation->patient_id,
+                        'reservation_id' => $reservation->id,
+                        'message' => __('messages.results_ready_desc'),
+                        'scheduled_for' => now(),
+                        'sent_at' => now(),
+                        'is_sent' => true,
+                    ]);
+
+                    $notifications[] = __('messages.patient');
+                } catch (\Exception $e) {
+                    \Log::error("Failed to notify patient for reservation {$id}: " . $e->getMessage());
+                    $errors[] = "خطأ في إرسال بريد المريض: " . $e->getMessage();
+                }
+            }
+        }
+
+        // 2. Notify Doctor
+        if ($target == 'doctor' || $target == 'both') {
+            if (!$reservation->doctor_id) {
+                $errors[] = __('messages.no_doctor_assigned');
+            } elseif (!$reservation->doctor || !$reservation->doctor->email) {
+                $errors[] = __('messages.doctor_no_email');
+            } else {
+                try {
+                    \Mail::send('emails.test-result', [
+                        'patient' => $reservation->patient,
+                        'reservation' => $reservation,
+                        'additional_notes' => $additionalNotes . "\n(Référé par: " . $reservation->doctor->name . ")",
+                    ], function($message) use ($reservation) {
+                        $message->to($reservation->doctor->email)
+                                ->subject('تنبيه نتائج المريض: ' . ($reservation->patient->name ?? 'مريض') . ' - labo.dz');
+                    });
+                    $notifications[] = __('messages.doctor');
+                } catch (\Exception $e) {
+                    \Log::error("Failed to notify doctor for reservation {$id}: " . $e->getMessage());
+                    $errors[] = "خطأ في إرسال بريد الطبيب: " . $e->getMessage();
+                }
+            }
+        }
+
+        // Construct response message
+        $messageLines = [];
+        if (count($notifications) > 0) {
+            $messageLines[] = 'تم إرسال التنبيهات لـ: ' . implode(', ', $notifications);
+        }
+        if (count($errors) > 0) {
+            $messageLines[] = implode(' | ', $errors);
+        }
+
+        $finalMessage = !empty($messageLines) ? implode(' | ', $messageLines) : 'لم يتم تنفيذ أي عملية';
+
+        return response()->json([
+            'success' => count($notifications) > 0,
+            'message' => $finalMessage,
+        ]);
+    }
+
+    /**
+     * Show the results entry form for a specific reservation
+     */
+    public function showResultsForm($id)
+    {
+        $reservation = Reservation::with(['patient', 'reservationAnalyses.analyse'])->findOrFail($id);
+        
+        // Ensure that each reservation analysis has a unit and reference range pre-filled if they are empty
+        foreach ($reservation->reservationAnalyses as $resAnalysis) {
+            if (empty($resAnalysis->unit) && !empty($resAnalysis->analyse->unit)) {
+                $resAnalysis->unit = $resAnalysis->analyse->unit;
+            }
+            if (empty($resAnalysis->reference_range) && !empty($resAnalysis->analyse->normal_range)) {
+                $resAnalysis->reference_range = $resAnalysis->analyse->normal_range;
+            }
+        }
+
+        return view('Adminstration.results-form', compact('reservation'));
+    }
+
+    /**
+     * Update clinical results for a reservation
+     */
+    public function updateResults(Request $request, $id)
+    {
+        $reservation = Reservation::findOrFail($id);
+        $resultsData = $request->input('results', []);
+
+        foreach ($resultsData as $analysisId => $data) {
+            $resAnalysis = ReservationAnalysis::where('reservation_id', $id)
+                ->where('id', $analysisId)
+                ->first();
+
+            if ($resAnalysis) {
+                $value = $data['value'] ?? null;
+                $clinicalStatus = 'Normal';
+
+                // Automated Safety Check (Critical Values)
+                if ($value !== null && is_numeric($value)) {
+                    $analyse = $resAnalysis->analyse;
+                    if ($analyse) {
+                        if ($analyse->max_critical !== null && $value >= $analyse->max_critical) {
+                            $clinicalStatus = 'CRITICAL';
+                        } elseif ($analyse->min_critical !== null && $value <= $analyse->min_critical) {
+                            $clinicalStatus = 'CRITICAL';
+                        }
+                    }
+                }
+
+                $resAnalysis->update([
+                    'result_value' => $value,
+                    'unit' => $data['unit'] ?? null,
+                    'reference_range' => $data['reference_range'] ?? null,
+                    'clinical_status' => $clinicalStatus,
+                ]);
+            }
+        }
+
+        // Trigger notification if requested
+        if ($request->has('notify_patient') && $request->notify_patient == '1') {
+            $this->notifyParticipants($request->merge(['target' => 'patient']), $id);
+        }
+
+        return redirect()->route('reservations')->with('success', __('messages.results_updated'));
     }
 }

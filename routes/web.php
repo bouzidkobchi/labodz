@@ -28,11 +28,12 @@ Route::post('/message', [Labo_dzController::class, 'message'])->name('message');
 Route::get('/analysis-info', [Labo_dzController::class, 'analysisInfo'])->name('analysis.info');
 
 // ==========================================================================
-// 2. PATIENT PORTAL (Visit & Session Based)
+// 2. UNIFIED ACCESS PORTAL (Doctor & Patient)
 // ==========================================================================
+Route::get('/access', [\App\Http\Controllers\UnifiedAccessController::class, 'show'])->name('access');
+Route::post('/access', [\App\Http\Controllers\UnifiedAccessController::class, 'login'])->name('access.submit');
+
 Route::prefix('portal')->group(function () {
-    Route::get('/', [\App\Http\Controllers\PatientPortalController::class, 'showLogin'])->name('patient.login');
-    Route::post('/access', [\App\Http\Controllers\PatientPortalController::class, 'access'])->name('patient.access');
     Route::get('/dashboard', [\App\Http\Controllers\PatientPortalController::class, 'dashboard'])->name('patient.dashboard');
     Route::get('/download/{id}', [\App\Http\Controllers\PatientPortalController::class, 'downloadResult'])->name('patient.download');
     Route::post('/logout', [\App\Http\Controllers\PatientPortalController::class, 'logout'])->name('patient.logout');
@@ -42,14 +43,10 @@ Route::prefix('portal')->group(function () {
 // 3. PHYSICIAN PORTAL (Guard: doctor)
 // ==========================================================================
 Route::prefix('physician')->group(function () {
-    Route::middleware('guest:doctor')->group(function () {
-        Route::get('/login', [\App\Http\Controllers\DoctorAuthController::class, 'showLoginForm'])->name('doctor.login');
-        Route::post('/login', [\App\Http\Controllers\DoctorAuthController::class, 'login'])->name('doctor.login.submit');
-    });
-
     Route::middleware('auth:doctor')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\DoctorDashboardController::class, 'dashboard'])->name('doctor.dashboard');
         Route::get('/patient-result/{id}', [\App\Http\Controllers\DoctorDashboardController::class, 'showPatientResult'])->name('doctor.patient.result');
+        Route::get('/download/{id}', [\App\Http\Controllers\DoctorDashboardController::class, 'downloadResult'])->name('doctor.download');
         Route::post('/logout', [\App\Http\Controllers\DoctorAuthController::class, 'logout'])->name('doctor.logout');
     });
 });
@@ -87,6 +84,10 @@ Route::middleware('auth:administrator')->group(function () {
         Route::get('/{id}/eligibility-results', [reservationsController::class, 'showEligibilityResults'])->name('admin.bookings.eligibility.results');
         Route::get('/{id}/print-report', [reservationsController::class, 'printEligibilityReport'])->name('admin.bookings.eligibility.print');
         Route::put('/analysis/{id}/status', [reservationsController::class, 'updateAnalysisStatus'])->name('admin.bookings.analysis.status.update');
+        Route::put('/{id}/referral', [reservationsController::class, 'updateReferral'])->name('admin.bookings.referral.update');
+        Route::post('/{id}/notify', [reservationsController::class, 'notifyParticipants'])->name('admin.bookings.notify');
+        Route::get('/{id}/results', [reservationsController::class, 'showResultsForm'])->name('admin.bookings.results.form');
+        Route::post('/{id}/results', [reservationsController::class, 'updateResults'])->name('admin.bookings.results.update');
     });
 
     // Analyses & Protocol
@@ -126,4 +127,5 @@ Route::get('/lang/{locale}', function ($locale) {
     return back();
 })->name('lang.switch');
 
-Route::get('/reservation/{id}/pdf', [\App\Http\Controllers\PdfController::class, 'generateReservationPdf'])->name('reservation.pdf');
+// Unified Secure PDF Download (Supports both requests and confirmed)
+Route::get('/reservation/{id}/pdf/{type?}', [\App\Http\Controllers\PdfController::class, 'generateReservationPdf'])->name('reservation.pdf');

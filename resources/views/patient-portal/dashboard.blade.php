@@ -241,6 +241,16 @@
                                     </span>
                                 </div>
                             </div>
+                            @if($reservation->doctor)
+                            <div class="col-md-3 col-6">
+                                <div class="info-label">{{ __('messages.referred_by') }}</div>
+                                <div class="info-value text-primary">
+                                    <i class="fas fa-user-md me-1"></i>
+                                    {{ $reservation->doctor->name }}
+                                </div>
+                                <div class="text-muted small">{{ $reservation->doctor->specialty }}</div>
+                            </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -252,24 +262,39 @@
                         {{ __('messages.medical_results') }}
                     </div>
                     <div class="p-4">
-                        @if($reservation->result_file_path)
-                            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-4 bg-light p-4 rounded-4">
-                                <div>
-                                    <h5 class="fw-bold mb-1">{{ __('messages.results_ready_title') }}</h5>
-                                    <p class="text-muted mb-0 small">{{ __('messages.results_ready_desc') }}</p>
-                                </div>
+                @php
+                    $hasDbResults = $reservation->reservationAnalyses->contains(fn($ra) => !empty($ra->result_value));
+                @endphp
+
+                @if($reservation->result_file_path || $hasDbResults)
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-4 bg-light p-4 rounded-4">
+                        <div class="flex-grow-1">
+                            <h5 class="fw-bold mb-1">{{ __('messages.results_ready_title') }}</h5>
+                            <p class="text-muted mb-0 small">{{ __('messages.results_ready_desc') }}</p>
+                        </div>
+                        <div class="d-flex flex-column flex-sm-row gap-2">
+                            @if($reservation->result_file_path)
                                 <a href="{{ route('patient.download', $reservation->id) }}" class="btn-download">
-                                    <i class="fas fa-cloud-download-alt"></i>
-                                    {{ __('messages.download_pdf') }}
+                                    <i class="fas fa-file-upload"></i>
+                                    {{ __('messages.download_original_file') }}
                                 </a>
-                            </div>
-                        @else
-                            <div class="empty-state">
-                                <i class="fas fa-hourglass-half"></i>
-                                <h5>{{ __('messages.results_pending_title') }}</h5>
-                                <p>{{ __('messages.results_pending_desc') }}</p>
-                            </div>
-                        @endif
+                            @endif
+                            
+                            @if($hasDbResults)
+                                <a href="{{ route('reservation.pdf', ['id' => $reservation->id, 'type' => 'confirmed']) }}" class="btn-download" style="background: var(--success-color);">
+                                    <i class="fas fa-file-medical"></i>
+                                    {{ __('messages.medical_report_pdf') }}
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                @else
+                    <div class="empty-state">
+                        <i class="fas fa-hourglass-half"></i>
+                        <h5>{{ __('messages.results_pending_title') }}</h5>
+                        <p>{{ __('messages.results_pending_desc') }}</p>
+                    </div>
+                @endif
                     </div>
                 </div>
 
@@ -311,7 +336,7 @@
                         {{ __('messages.official_reports') }}
                     </div>
                     <div class="p-4 d-grid gap-2">
-                        <a href="{{ route('reservation.pdf', $reservation->id) }}" class="btn btn-outline-secondary w-100 rounded-3 text-start">
+                        <a href="{{ route('reservation.pdf', ['id' => $reservation->id, 'type' => 'confirmed']) }}" class="btn btn-outline-secondary w-100 rounded-3 text-start">
                             <i class="fas fa-file-pdf me-2 text-danger"></i> {{ __('messages.appointment_confirmation') }}
                         </a>
                         

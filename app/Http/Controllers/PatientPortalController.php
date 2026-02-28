@@ -27,13 +27,27 @@ class PatientPortalController extends Controller
     {
         $request->validate([
             'phone' => 'required|string',
-            'reservation_id' => 'required|integer',
+            'reservation_id' => 'required|string',
         ]);
 
+        // Normalize Case Number (Strip #, V-, R-, spaces)
+        $inputID = strtoupper(trim($request->reservation_id));
+        $inputID = str_replace(['#', ' '], '', $inputID);
+        $numericID = $inputID;
+
+        if (preg_match('/^[VR]-?(\d+)$/', $inputID, $matches)) {
+            $numericID = $matches[1];
+        }
+
+        // Normalize Phone (Strip spaces and non-digits)
+        $inputPhone = preg_replace('/[^0-9]/', '', $request->phone);
+
         $reservation = Reservation::with('patient')
-            ->where('id', $request->reservation_id)
-            ->whereHas('patient', function ($q) use ($request) {
-                $q->where('phone', $request->phone);
+            ->where('id', $numericID)
+            ->whereHas('patient', function ($q) use ($inputPhone) {
+                // Check against normalized phone
+                $q->where('phone', $inputPhone)
+                  ->orWhereRaw("REPLACE(phone, ' ', '') = ?", [$inputPhone]);
             })
             ->first();
 
@@ -42,7 +56,7 @@ class PatientPortalController extends Controller
         }
 
         Session::put('patient_reservation_id', $reservation->id);
-        Session::put('patient_phone', $request->phone);
+        Session::put('patient_phone', $reservation->patient->phone); // Store the canonical phone
 
         return redirect()->route('patient.dashboard');
     }
@@ -56,17 +70,17 @@ class PatientPortalController extends Controller
         $phone = Session::get('patient_phone');
 
         if (!$reservationId || !$phone) {
-            return redirect()->route('patient.login');
+        return redirect()->route('access');
         }
 
-        $reservation = Reservation::with(['patient', 'reservationAnalyses.analyse', 'reminders'])
+        $reservation = Reservation::with(['patient', 'doctor', 'reservationAnalyses.analyse', 'reminders'])
             ->where('id', $reservationId)
             ->firstOrFail();
 
         // Safety check
         if ($reservation->patient->phone !== $phone) {
             Session::forget(['patient_reservation_id', 'patient_phone']);
-            return redirect()->route('patient.login');
+        return redirect()->route('access');
         }
 
         return view('patient-portal.dashboard', compact('reservation'));
@@ -78,7 +92,7 @@ class PatientPortalController extends Controller
     public function logout()
     {
         Session::forget(['patient_reservation_id', 'patient_phone']);
-        return redirect()->route('patient.login');
+        return redirect()->route('access');
     }
 
     /**

@@ -50,6 +50,6 @@ class DoctorAuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('doctor.login');
+        return redirect()->route('access');
     }
 }

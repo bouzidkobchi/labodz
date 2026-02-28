@@ -31,18 +31,22 @@ class Labo_dzController extends Controller
      */
     public function booking(Request $request)
     {
-        // Validate the request
+        // Validate the request with strict rules
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20',
-            'email' => 'nullable|email',
+            'phone' => ['required', 'string', 'regex:/^(05|06|07)[0-9]{8}$/'],
+            'email' => 'nullable|email:rfc,dns',
             'gender' => 'required|in:male,female',
             'birth_date' => 'required|date',
             'analysisTypes' => 'required_without:prescription|array',
             'analysisTypes.*' => 'exists:analyses,id',
-            'date' => 'nullable|date',
-            'time' => 'nullable',
+            'date' => 'required|date|after_or_equal:today',
+            'time' => 'required',
             'prescription' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ], [
+            'phone.regex' => __('messages.invalid_phone_format'),
+            'date.after_or_equal' => __('messages.invalid_date_past'),
+            'email.email' => __('messages.invalid_email_format'),
         ]);
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
@@ -98,7 +102,11 @@ class Labo_dzController extends Controller
 
             // Redirect with success message and trigger PDF download + Prep Modal
             return redirect()->back()
-                ->with('success', "تم إرسال طلب الحجز{$analysisNames} للسيد/ة {$request->name} بنجاح، سنتصل بك على الرقم {$request->phone} لتأكيد الحجز")
+                ->with('success', __('messages.booking_success', [
+                    'analyses' => $analysisNames,
+                    'name' => $request->name,
+                    'phone' => $request->phone
+                ]))
                 ->with('download_pdf', $requestReservation->id)
                 ->with('preparations', $preparations);
         } catch (\Exception $e) {
