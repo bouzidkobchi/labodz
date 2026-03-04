@@ -326,4 +326,10 @@ return [
     'view_full' => 'Voir Complètement',
     'no_prescription' => 'Aucune Ordonnance',
     'back_to_home' => 'Retour à l\'accueil',
+    'price_unit' => ':unit',
+    'options' => 'Options',
+    'no_options_added' => 'Aucune option ajoutée',
+    'no_questions_added' => 'Aucune question ajoutée',
+    'block' => 'Bloquer',
+    'remember_me' => 'Se souvenir de moi',
 ];

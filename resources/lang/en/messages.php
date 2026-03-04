@@ -323,4 +323,10 @@ return [
     'view_full' => 'View Full',
     'no_prescription' => 'No Prescription',
     'back_to_home' => 'Back to Home',
+    'price_unit' => ':unit',
+    'options' => 'Options',
+    'no_options_added' => 'No options added yet',
+    'no_questions_added' => 'No questions added yet',
+    'block' => 'Block',
+    'remember_me' => 'Remember Me',
 ];

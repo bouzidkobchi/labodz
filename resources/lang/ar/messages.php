@@ -331,4 +331,10 @@ return [
     'view_full' => 'مشاهدة كاملة',
     'no_prescription' => 'لا توجد وصفة',
     'back_to_home' => 'العودة للرئيسية',
+    'price_unit' => ':unit',
+    'options' => 'خيارات',
+    'no_options_added' => 'لم تتم إضافة خيارات بعد',
+    'no_questions_added' => 'لم تتم إضافة أسئلة بعد',
+    'block' => 'حظر',
+    'remember_me' => 'تذكرني',
 ];
