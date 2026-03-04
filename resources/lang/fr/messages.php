@@ -318,4 +318,12 @@ return [
     'notify_patient' => 'Patient',
     'notify_doctor' => 'Médecin',
     'notify_both' => 'Les deux',
+    'save_success' => 'Enregistré avec succès',
+    'delete_success' => 'Supprimé avec succès',
+    'view_prescription' => 'Voir Ordonnance',
+    'prescription' => 'Ordonnance',
+    'attached_prescription' => 'Ordonnance Jointe',
+    'view_full' => 'Voir Complètement',
+    'no_prescription' => 'Aucune Ordonnance',
+    'back_to_home' => 'Retour à l\'accueil',
 ];

@@ -315,4 +315,12 @@ return [
     'notify_patient' => 'Patient',
     'notify_doctor' => 'Doctor',
     'notify_both' => 'Both',
+    'save_success' => 'Saved successfully',
+    'delete_success' => 'Deleted successfully',
+    'view_prescription' => 'View Prescription',
+    'prescription' => 'Prescription',
+    'attached_prescription' => 'Attached Prescription',
+    'view_full' => 'View Full',
+    'no_prescription' => 'No Prescription',
+    'back_to_home' => 'Back to Home',
 ];

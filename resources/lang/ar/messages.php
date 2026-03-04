@@ -323,4 +323,12 @@ return [
     'notify_patient' => 'المريض',
     'notify_doctor' => 'الطبيب',
     'notify_both' => 'الكل',
+    'save_success' => 'تم الحفظ بنجاح',
+    'delete_success' => 'تم الحذف بنجاح',
+    'view_prescription' => 'مشاهدة الوصفة',
+    'prescription' => 'الوصفة الطبية',
+    'attached_prescription' => 'الوصفة الطبية المرفقة',
+    'view_full' => 'مشاهدة كاملة',
+    'no_prescription' => 'لا توجد وصفة',
+    'back_to_home' => 'العودة للرئيسية',
 ];
